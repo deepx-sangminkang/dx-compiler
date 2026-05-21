@@ -21,6 +21,7 @@ USE_FORCE=1
 REUSE_VENV=0
 FORCE_REMOVE_VENV=1
 VENV_SYSTEM_SITE_PACKAGES_ARGS=""
+USE_PYPI=0
 
 # Global variables for script configuration
 PYTHON_VERSION=""
@@ -43,9 +44,9 @@ DX_TRON_INSTALLED=0
 # Properties file path
 VERSION_FILE="$PROJECT_ROOT/compiler.properties"
 
-# Read 'COM_VERSION', 'COM_DOWNLOAD_URL' from properties file
+# Read version properties from file
 if [[ -f "$VERSION_FILE" ]]; then
-    print_colored "Loading versions and download URLs from '$VERSION_FILE'..." "INFO"
+    print_colored "Loading version properties from '$VERSION_FILE'..." "INFO"
     source "$VERSION_FILE"
 else
     print_colored "Version file '$VERSION_FILE' not found." "ERROR"
@@ -121,20 +122,6 @@ validate_environment() {
     # Check COM_VERSION
     if [ -z "$COM_VERSION" ]; then
         print_colored "COM_VERSION not defined in '$VERSION_FILE'." "ERROR"
-        popd >&2
-        exit 1
-    fi
-
-    # Check that all COM_CPXX_DOWNLOAD_URLs are defined
-    local MISSING_URLS=""
-    for py_ver in 38 39 310 311 312; do
-        local url_var="COM_CP${py_ver}_DOWNLOAD_URL"
-        if [ -z "${!url_var}" ]; then
-            MISSING_URLS+=" COM_CP${py_ver}_DOWNLOAD_URL"
-        fi
-    done
-    if [ -n "$MISSING_URLS" ]; then
-        print_colored "Missing COM_CPXX_DOWNLOAD_URL(s) in '$VERSION_FILE':${MISSING_URLS}" "ERROR"
         popd >&2
         exit 1
     fi
@@ -465,142 +452,99 @@ show_installation_complete_message() {
 install_dx_com() {
     echo -e "=== install_dx_com() ${TAG_START} ==="
 
-    # Check if archive mode is enabled
-    if [ "$ARCHIVE_MODE" = "y" ]; then
-        print_colored "ARCHIVE_MODE is ON." "INFO"
-        ARCHIVE_MODE_ARGS="--archive_mode=y" # Pass this to install_module.sh
-    fi
+    local DX_AS_PATH
+    DX_AS_PATH=$(realpath -s "${PROJECT_ROOT}/..")
 
-    # Select download URL based on Python version
-    local SELECTED_COM_URL=""
+    # Detect Python version tag for onnxruntime workaround
     local PYTHON_VERSION_TAG=""
     if [ -n "$PYTHON_VERSION" ]; then
-        # Use user-specified Python version
         PYTHON_VERSION_TAG="cp${PYTHON_VERSION//./}"
-        print_colored "Using user-specified Python version: ${PYTHON_VERSION} (${PYTHON_VERSION_TAG})" "INFO"
     else
-        # Detect current Python version
         PYTHON_VERSION_TAG=$(python3 -c "import sys; print(f'cp{sys.version_info.major}{sys.version_info.minor}')" 2>/dev/null)
         if [ -z "$PYTHON_VERSION_TAG" ]; then
-            print_colored "ERROR: Failed to detect Python version." "ERROR"
+            print_colored "Failed to detect Python version." "ERROR"
             popd >&2
             exit 1
         fi
-        print_colored "Detected Python version tag: ${PYTHON_VERSION_TAG}" "INFO"
     fi
+    print_colored "Detected Python version tag: ${PYTHON_VERSION_TAG}" "INFO"
 
-    # Select URL based on Python version
-    local VERSION_URL_VAR="COM_${PYTHON_VERSION_TAG^^}_DOWNLOAD_URL"
-    local VERSION_SPECIFIC_URL="${!VERSION_URL_VAR}"
-
-    if [ -n "$VERSION_SPECIFIC_URL" ]; then
-        SELECTED_COM_URL="$VERSION_SPECIFIC_URL"
-        print_colored "Using Python ${PYTHON_VERSION_TAG} specific wheel download URL: $SELECTED_COM_URL" "INFO"
-    else
-        print_colored "ERROR: No download URL found for Python ${PYTHON_VERSION_TAG}." "ERROR"
-        print_colored "Please ensure ${VERSION_URL_VAR} is defined in compiler.properties." "ERROR"
-        popd >&2
-        exit 1
-    fi
-
-    # Install dx-com
-    print_colored "Installing dx-com (Version: $COM_VERSION)..." "INFO"
-    # Pass all relevant args to install_module.sh
-    INSTALL_COM_CMD="$PROJECT_ROOT/scripts/install_module.sh --module_name=dx_com --version=$COM_VERSION --download_url=$SELECTED_COM_URL $ARCHIVE_MODE_ARGS $FORCE_ARGS $VERBOSE_ARGS"
-    print_colored "Executing: $INSTALL_COM_CMD" "DEBUG" # Debug line
-    # Use direct execution to properly pass environment variables with real-time output
-    COM_OUTPUT_FILE=$(mktemp)
-    eval "$INSTALL_COM_CMD" 2>&1 | tee "$COM_OUTPUT_FILE"
-    COM_INSTALL_EXIT_CODE=${PIPESTATUS[0]}
-    COM_OUTPUT=$(cat "$COM_OUTPUT_FILE")
-    rm -f "$COM_OUTPUT_FILE"
-    if [ $COM_INSTALL_EXIT_CODE -ne 0 ]; then
-        print_colored "Installing dx-com failed!" "ERROR"
-        popd >&2
-        exit 1
-    fi
-
-    # Extract archived file path from output if in archive mode
+    # Archive mode: download wheel to DX_AS_PATH/archives without installing
     if [ "$ARCHIVE_MODE" = "y" ]; then
-        ARCHIVED_COM_FILE=$(echo "$COM_OUTPUT" | grep "^ARCHIVED_FILE_PATH=" | tail -1 | cut -d'=' -f2)
+        local ARCHIVE_DIR="${DX_AS_PATH}/archives"
+        mkdir -p "$ARCHIVE_DIR"
+        print_colored "ARCHIVE_MODE is ON. Downloading dx-com to ${ARCHIVE_DIR}..." "INFO"
+
+        local PIP_DOWNLOAD_ARGS=(
+            "--dest" "$ARCHIVE_DIR"
+            "--no-deps"
+            "--only-binary=:all:"
+            "--python-version" "${PYTHON_VERSION_TAG#cp}"
+            "dx-com==${COM_VERSION}"
+        )
+
+        if [ "$USE_PYPI" -eq 1 ]; then
+            pip download "${PIP_DOWNLOAD_ARGS[@]}"
+        else
+            local COM_FIND_LINKS="https://sdk.deepx.ai/release/dxcom/v${COM_VERSION}/index.html"
+            pip download "${PIP_DOWNLOAD_ARGS[@]}" -f "$COM_FIND_LINKS"
+        fi
+
+        if [ $? -ne 0 ]; then
+            print_colored "Failed to download dx-com for archiving." "ERROR"
+            popd >&2
+            exit 1
+        fi
+
+        local ARCHIVED_COM_FILE
+        ARCHIVED_COM_FILE=$(find "$ARCHIVE_DIR" -name "dx_com-${COM_VERSION}*.whl" -type f | head -1)
         if [ -n "$ARCHIVED_COM_FILE" ] && [ -n "$ARCHIVE_OUTPUT_FILE" ]; then
             echo "ARCHIVED_COM_FILE=${ARCHIVED_COM_FILE}" >> "$ARCHIVE_OUTPUT_FILE"
         fi
+        print_colored "dx-com archived: ${ARCHIVED_COM_FILE}" "INFO"
+
+        echo -e "=== install_dx_com() ${TAG_DONE} ==="
+        DX_COM_INSTALLED=1
+        return
     fi
 
-    # --- Wheel Installation (dx_com only) ---
-    if [ "$ARCHIVE_MODE" != "y" ]; then
-        print_colored "INFO: Checking for wheel package installation..." "INFO"
-
-        # Determine the dx_com directory (OUTPUT_DIR equivalent)
-        local DX_COM_DIR="${PROJECT_ROOT}/dx_com"
-
-        # Get current Python version tag (e.g., cp312, cp311)
-        local PYTHON_VERSION_TAG=$(python3 -c "import sys; print(f'cp{sys.version_info.major}{sys.version_info.minor}')" 2>/dev/null)
-        if [ -z "$PYTHON_VERSION_TAG" ]; then
-            print_colored "ERROR: Failed to detect Python version." "ERROR"
-            popd >&2
-            exit 1
-        fi
-        print_colored "INFO: Detected Python version tag: ${PYTHON_VERSION_TAG}" "INFO"
-
-        # Scan for .whl files matching the current Python version
-        local MATCHING_WHEEL=""
-        local ALL_WHEEL_FILES=()
-
-        # Collect all wheel files
-        for whl_file in "${DX_COM_DIR}"/*.whl; do
-            if [ -e "$whl_file" ]; then
-                ALL_WHEEL_FILES+=("$whl_file")
-                # Check if this wheel matches the current Python version
-                if [[ "$(basename "$whl_file")" == *"-${PYTHON_VERSION_TAG}-"* ]]; then
-                    MATCHING_WHEEL="$whl_file"
-                fi
-            fi
-        done
-
-        # Check if any wheel files exist
-        if [ ${#ALL_WHEEL_FILES[@]} -eq 0 ]; then
-            print_colored "ERROR: No wheel file found in '${DX_COM_DIR}'." "ERROR"
-            popd >&2
-            exit 1
-        fi
-
-        # Check if a matching wheel was found
-        if [ -z "$MATCHING_WHEEL" ]; then
-            print_colored "ERROR: No wheel file compatible with Python ${PYTHON_VERSION_TAG} found in '${DX_COM_DIR}'." "ERROR"
-            print_colored "Available wheel files:" "ERROR"
-            for whl in "${ALL_WHEEL_FILES[@]}"; do
-                print_colored "  - $(basename "$whl")" "ERROR"
-            done
-            print_colored "Please ensure a wheel file for ${PYTHON_VERSION_TAG} is available." "ERROR"
-            popd >&2
-            exit 1
-        fi
-
-        # Install the matching wheel
-        print_colored "INFO: Found compatible wheel file: $(basename "$MATCHING_WHEEL")" "INFO"
-
-        # For Python 3.8, manually install onnxruntime 1.18.0 from direct URL (PyPI doesn't support it)
-        # Note: pip upgrade is required to recognize manylinux_2_27/manylinux_2_28 platform tags
-        if [ "${PYTHON_VERSION_TAG}" = "cp38" ]; then
-            print_colored "INFO: Python 3.8 detected: Upgrading pip and installing onnxruntime 1.18.0 from direct URL..." "INFO"
-            pip3 install --upgrade pip
-            if pip3 install https://files.pythonhosted.org/packages/1b/74/02cb1f6fcbadc094c98c49aff8571e7c576bdb4015c01507c385285b5bed/onnxruntime-1.18.0-cp38-cp38-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl; then
-                print_colored "INFO: onnxruntime 1.18.0 installed successfully for Python 3.8!" "INFO"
-            else
-                print_colored "ERROR: Failed to install onnxruntime 1.18.0 for Python 3.8." "ERROR"
-                popd >&2
-                exit 1
-            fi
-        fi
-
-        print_colored "INFO: Installing wheel package with pip..." "INFO"
-
-        if pip3 install "$MATCHING_WHEEL"; then
-            print_colored "INFO: Wheel package installed successfully!" "INFO"
+    # For Python 3.8, manually install onnxruntime 1.18.0 from direct URL (PyPI doesn't support it)
+    if [ "${PYTHON_VERSION_TAG}" = "cp38" ]; then
+        print_colored "Python 3.8 detected: Upgrading pip and installing onnxruntime 1.18.0 from direct URL..." "INFO"
+        pip install --upgrade pip
+        if pip install https://files.pythonhosted.org/packages/1b/74/02cb1f6fcbadc094c98c49aff8571e7c576bdb4015c01507c385285b5bed/onnxruntime-1.18.0-cp38-cp38-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl; then
+            print_colored "onnxruntime 1.18.0 installed successfully for Python 3.8!" "INFO"
         else
-            print_colored "ERROR: Failed to install wheel package '$(basename "$MATCHING_WHEEL")'." "ERROR"
+            print_colored "Failed to install onnxruntime 1.18.0 for Python 3.8." "ERROR"
+            popd >&2
+            exit 1
+        fi
+    fi
+
+    # Install dx-com via pip
+    print_colored "Installing dx-com (Version: $COM_VERSION)..." "INFO"
+
+    local PIP_FORCE_ARGS=""
+    if [ -n "$FORCE_ARGS" ]; then
+        PIP_FORCE_ARGS="--force-reinstall"
+    fi
+
+    if [ "$USE_PYPI" -eq 1 ]; then
+        print_colored "Installing dx-com from PyPI..." "INFO"
+        if pip install $PIP_FORCE_ARGS "dx-com==${COM_VERSION}"; then
+            print_colored "dx-com installed successfully from PyPI!" "INFO"
+        else
+            print_colored "Failed to install dx-com from PyPI." "ERROR"
+            popd >&2
+            exit 1
+        fi
+    else
+        local COM_FIND_LINKS="https://sdk.deepx.ai/release/dxcom/v${COM_VERSION}/index.html"
+        print_colored "Installing dx-com from ${COM_FIND_LINKS}..." "INFO"
+        if pip install $PIP_FORCE_ARGS "dx-com==${COM_VERSION}" -f "$COM_FIND_LINKS"; then
+            print_colored "dx-com installed successfully!" "INFO"
+        else
+            print_colored "Failed to install dx-com." "ERROR"
             popd >&2
             exit 1
         fi
@@ -871,6 +815,14 @@ while [[ $# -gt 0 ]]; do
                 FORCE_ARGS=""
             else
                 FORCE_ARGS="--force"
+            fi
+            ;;
+        --pypi=*)
+            PYPI_VALUE="${1#*=}"
+            if [ "$PYPI_VALUE" = "true" ]; then
+                USE_PYPI=1
+            else
+                USE_PYPI=0
             fi
             ;;
         --help)
