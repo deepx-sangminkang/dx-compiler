@@ -8,7 +8,7 @@ sudo apt-get update && sudo apt-get install -y software-properties-common && \
 sudo add-apt-repository -y universe && sudo apt-get update && \
 
 # Version-specific packages
-if [ "$UBUNTU_VERSION" = "24.04" ]; then \
+if [ "$UBUNTU_VERSION" = "26.04" ] || [ "$UBUNTU_VERSION" = "24.04" ]; then \
     # libfuse2 is safe (needed for AppImages), but 'fuse' package must be avoided
     sudo apt-get install -y --no-install-recommends \
         libgl1-mesa-dev libglib2.0-0 make \

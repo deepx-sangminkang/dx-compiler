@@ -706,19 +706,19 @@ os_arch_check() {
 
     if [ "$target" == "dx_com" ]; then
         os_names="ubuntu"
-        ubuntu_versions="20.04 22.04 24.04"
+        ubuntu_versions="20.04 22.04 24.04 26.04"
         debian_versions=""
         supported_arch_names="amd64 x86_64"
 
-        os_check_error_message="This installer supports only Ubuntu 20.04, 22.04, and 24.04."
+        os_check_error_message="This installer supports only Ubuntu 20.04, 22.04, 24.04, and 26.04."
         arch_check_error_message="This installer supports only x86_64/amd64 architecture."
     elif [ "$target" == "dx_tron" ]; then
         os_names="ubuntu debian"
-        ubuntu_versions="20.04 22.04 24.04"
+        ubuntu_versions="20.04 22.04 24.04 26.04"
         debian_versions="11 12 13"
         supported_arch_names="amd64 x86_64 arm64 aarch64 armv7l"
 
-        os_check_error_message="This installer supports only Ubuntu 20.04, 22.04, and 24.04 / Debian 11 12 and 13."
+        os_check_error_message="This installer supports only Ubuntu 20.04, 22.04, 24.04, and 26.04 / Debian 11 12 and 13."
         arch_check_error_message="This installer supports only x86_64/amd64 and arm64/aarch64/armv7l architecture."
     else
         print_colored_v2 "ERROR" "$1 is not supported target."
@@ -882,6 +882,19 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+# Set default Python version for Ubuntu 26.04 if not explicitly specified
+if [ -z "$PYTHON_VERSION" ]; then
+    if [ -f /etc/os-release ]; then
+        _OS_ID=$(grep "^ID=" /etc/os-release | sed 's/^ID=//' | tr -d '"')
+        _OS_VERSION_ID=$(grep "^VERSION_ID=" /etc/os-release | sed 's/^VERSION_ID=//' | tr -d '"')
+        if [ "$_OS_ID" = "ubuntu" ] && [ "$_OS_VERSION_ID" = "26.04" ]; then
+            PYTHON_VERSION="3.12"
+            print_colored "Ubuntu 26.04 detected. Setting default Python version to ${PYTHON_VERSION}." "INFO"
+        fi
+        unset _OS_ID _OS_VERSION_ID
+    fi
+fi
 
 main
 
