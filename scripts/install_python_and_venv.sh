@@ -20,8 +20,6 @@ usage() {
     echo -e "                                Default Minimum supported version: ${DEFAULT_MIN_PY_VERSION}."
     echo -e "                                If not specified:"
     echo -e "                                  - For Ubuntu 20.04+, the OS default Python 3 will be used."
-    echo -e "                                  - For Ubuntu 18.04, Python ${DEFAULT_MIN_PY_VERSION} "
-    echo -e "                                    (or the value specified by the '--min_py_version' option) will be source-built."
     echo -e ""
     echo -e "  ${COLOR_GREEN}--min_py_version=<VERSION>${COLOR_RESET}  Specify the minimum Python version. (default: ${DEFAULT_MIN_PY_VERSION})"
     echo -e ""
@@ -58,8 +56,8 @@ usage() {
 # Outputs the executable path to stdout if found and usable.
 # Logs to stderr.
 # Arguments:
-#   $1: OS_ID - The operating system ID (ubuntu, debian, etc.)
-#   $2: OS_VERSION - Current OS release version (e.g., "20.04" for Ubuntu, "12" for Debian)
+#   $1: OS_ID - The operating system ID (ubuntu, debian, fedora, rhel, centos, etc.)
+#   $2: OS_VERSION - Current OS release version (e.g., "20.04" for Ubuntu, "12" for Debian, "42" for Fedora, "9"/"10" for RHEL/CentOS)
 #   $3: REQUESTED_PY_VERSION (optional) - The specific Python version requested (e.g., "3.8.2").
 #                                         If empty, means OS default/MIN_PY_VERSION is implied.
 #   $4: MIN_REQUIRED_PY_VERSION - The absolute minimum Python version required by the script.
@@ -193,7 +191,8 @@ add_deadsnakes_ppa_if_needed() {
 }
 
 # ---
-## Check if Python packages are available via apt
+## Check if Python packages are available via apt (Debian/Ubuntu only)
+## For Red Hat family (Fedora/RHEL/CentOS), dnf is used directly without a pre-check.
 # Returns 0 if available, 1 otherwise
 # ---
 check_python_apt_availability() {
@@ -216,7 +215,8 @@ check_python_apt_availability() {
 }
 
 # ---
-## Install Python via apt
+## Install Python via apt (Debian/Ubuntu only)
+## For Red Hat family (Fedora/RHEL/CentOS), see the dnf-based path in install_python_and_dependencies().
 # Returns 0 on success, 1 on failure
 # ---
 install_python_via_apt() {
@@ -250,7 +250,8 @@ install_python_via_apt() {
 }
 
 # ---
-## Install Python via source build
+## Install Python via source build on Debian/Ubuntu (uses apt for build deps)
+## For Red Hat family, see install_python_via_source_rhel() below.
 # Returns 0 on success, 1 on failure
 # ---
 install_python_via_source() {
@@ -319,20 +320,99 @@ install_python_via_source() {
 }
 
 # ---
+## Install Python via source build on Red Hat family (Fedora, RHEL, CentOS)
+# Returns 0 on success, 1 on failure
+# ---
+install_python_via_source_rhel() {
+    local TARGET_INSTALL_PY_VERSION="${1}"
+    local PY_MAJOR_MINOR="${2}"
+
+    echo -e "${TAG_INFO} Installing python ${TARGET_INSTALL_PY_VERSION} via source build (Red Hat family)..." >&2
+
+    # Install build dependencies using dnf
+    if ! sudo dnf install -y \
+        gcc gcc-c++ make \
+        wget curl \
+        ca-certificates \
+        openssl-devel \
+        zlib-devel \
+        ncurses-devel \
+        readline-devel \
+        sqlite-devel \
+        gdbm-devel \
+        bzip2-devel \
+        xz-devel \
+        tk-devel \
+        libffi-devel \
+        uuid-devel \
+        expat-devel 2>&1 | tee /tmp/build_deps_rhel.log >&2; then
+        echo -e "${TAG_ERROR} Failed to install build dependencies (dnf)" >&2
+        return 1
+    fi
+
+    # Build Python from source
+    local BUILD_DIR="/tmp/python_build_$$"
+    mkdir -p "${BUILD_DIR}"
+
+    if ! (cd "${BUILD_DIR}" && \
+        wget --no-check-certificate "https://www.python.org/ftp/python/${TARGET_INSTALL_PY_VERSION}/Python-${TARGET_INSTALL_PY_VERSION}.tgz" && \
+        tar xzf "Python-${TARGET_INSTALL_PY_VERSION}.tgz" && \
+        cd "Python-${TARGET_INSTALL_PY_VERSION}" && \
+        ./configure --enable-optimizations && \
+        make -j$(nproc) && \
+        sudo make altinstall) 2>&1 | tee /tmp/source_build_rhel.log >&2; then
+        echo -e "${TAG_ERROR} Source build failed for Python ${TARGET_INSTALL_PY_VERSION}" >&2
+        sudo rm -rf "${BUILD_DIR}"
+        return 1
+    fi
+
+    sudo rm -rf "${BUILD_DIR}"
+
+    # Verify installation
+    if command -v "python${PY_MAJOR_MINOR}" &>/dev/null; then
+        local INSTALLED_VERSION=$("python${PY_MAJOR_MINOR}" --version 2>&1 | awk '{print $2}')
+        echo -e "${TAG_INFO} Python ${INSTALLED_VERSION} installed successfully via source build (Red Hat family)" >&2
+        sudo rm -f /tmp/source_build_rhel.log /tmp/build_deps_rhel.log
+        return 0
+    else
+        echo -e "${TAG_ERROR} Source build completed but python${PY_MAJOR_MINOR} command not found" >&2
+        return 1
+    fi
+}
+
+# ---
 ## Install generic python3 dev/venv packages as fallback
+## Branches by OS family: dnf for Fedora/RHEL/CentOS, apt for Debian/Ubuntu (and as default).
 # Returns 0 on success, 1 on failure
 # ---
 install_generic_python3_dev_venv() {
+    local OS_ID="${1:-}"
     echo -e "${TAG_INFO} Installing generic python3 dev/venv packages as fallback..." >&2
-    if sudo apt-get install -y python3-dev python3-venv 2>&1 | tee /tmp/apt_install_devvenv_fallback.log >&2; then
-        echo -e "${TAG_INFO} Successfully installed generic python3 dev/venv packages" >&2
-        sudo rm -f /tmp/apt_install_devvenv_fallback.log
-        return 0
-    else
-        echo -e "${TAG_ERROR} Failed to install generic python3 dev/venv packages" >&2
-        sudo rm -f /tmp/apt_install_devvenv_fallback.log
-        return 1
-    fi
+
+    case "$OS_ID" in
+        fedora|rhel|centos)
+            if sudo dnf install -y python3-devel python3-libs 2>&1 | tee /tmp/dnf_install_devvenv_fallback.log >&2; then
+                echo -e "${TAG_INFO} Successfully installed generic python3 dev packages (dnf)" >&2
+                sudo rm -f /tmp/dnf_install_devvenv_fallback.log
+                return 0
+            else
+                echo -e "${TAG_ERROR} Failed to install generic python3 dev packages (dnf)" >&2
+                sudo rm -f /tmp/dnf_install_devvenv_fallback.log
+                return 1
+            fi
+            ;;
+        *)
+            if sudo apt-get install -y python3-dev python3-venv 2>&1 | tee /tmp/apt_install_devvenv_fallback.log >&2; then
+                echo -e "${TAG_INFO} Successfully installed generic python3 dev/venv packages" >&2
+                sudo rm -f /tmp/apt_install_devvenv_fallback.log
+                return 0
+            else
+                echo -e "${TAG_ERROR} Failed to install generic python3 dev/venv packages" >&2
+                sudo rm -f /tmp/apt_install_devvenv_fallback.log
+                return 1
+            fi
+            ;;
+    esac
 }
 
 # ---
@@ -340,14 +420,16 @@ install_generic_python3_dev_venv() {
 # Returns 0 on success, 1 on failure
 # Arguments:
 #   $1: PYTHON_EXEC - Python executable path (e.g., python3.10, /usr/bin/python3.11)
-#   $2: OS_ID - The operating system ID (ubuntu, debian, etc.)
+#   $2: OS_ID - The operating system ID (ubuntu, debian, fedora, rhel, centos, etc.)
 # ---
 ensure_python_dev_venv_packages() {
     local PYTHON_EXEC="${1}"
     local OS_ID="${2}"
     
-    # Only for Ubuntu/Debian with apt-based Python
-    if [ "$OS_ID" != "ubuntu" ] && [ "$OS_ID" != "debian" ]; then
+    # Restrict to supported families: Debian (ubuntu/debian via apt) and Red Hat (fedora/rhel/centos via dnf)
+    if [ "$OS_ID" != "ubuntu" ] && [ "$OS_ID" != "debian" ] && \
+       [ "$OS_ID" != "fedora" ] && [ "$OS_ID" != "rhel" ] && \
+       [ "$OS_ID" != "centos" ]; then
         return 0
     fi
     
@@ -364,9 +446,30 @@ ensure_python_dev_venv_packages() {
         return 0
     fi
     
+    # Handle Red Hat family separately
+    case "$OS_ID" in
+        fedora|rhel|centos)
+            echo -e "${TAG_INFO} Installing python3-devel packages for ${OS_ID}..." >&2
+            install_generic_python3_dev_venv "$OS_ID" || {
+                echo -e "${TAG_WARN} Failed to install python3 dev packages" >&2
+                return 1
+            }
+
+            # Try version-specific devel package
+            local PY_VER_NODOT="${PYTHON_VERSION_FOR_PKG//./}"
+            if ! rpm -q "python${PYTHON_VERSION_FOR_PKG}-devel" >/dev/null 2>&1 && \
+               ! rpm -q "python${PY_VER_NODOT}-devel" >/dev/null 2>&1; then
+                echo -e "${TAG_INFO} Attempting to install python${PYTHON_VERSION_FOR_PKG}-devel..." >&2
+                sudo dnf install -y "python${PYTHON_VERSION_FOR_PKG}-devel" 2>/dev/null || \
+                sudo dnf install -y "python${PY_VER_NODOT}-devel" 2>/dev/null || true
+            fi
+            return 0
+            ;;
+    esac
+
     # Step 1: Always install generic python3-dev and python3-venv first (base requirement)
     echo -e "${TAG_INFO} Installing generic python3-dev and python3-venv packages..." >&2
-    install_generic_python3_dev_venv || {
+    install_generic_python3_dev_venv "$OS_ID" || {
         echo -e "${TAG_WARN} Failed to install generic python3 dev/venv packages" >&2
         return 1
     }
@@ -416,10 +519,11 @@ ensure_python_dev_venv_packages() {
 # ---
 # Arguments:
 #   $1: TARGET_INSTALL_PY_VERSION (optional) - The specific Python version to install.
-#         If empty, the OS default Python 3 version will be installed for Ubuntu 20.04+ and Debian 11+.
-#         For Ubuntu 18.04, MIN_PY_VERSION will be used if TARGET_INSTALL_PY_VERSION is empty.
-#   $2: OS_ID - The operating system ID (ubuntu, debian, etc.)
-#   $3: OS_VERSION - The current OS release version (e.g., "20.04" for Ubuntu, "12" for Debian)
+#         If empty, the OS default Python 3 version will be installed for Ubuntu 20.04+ and Debian 12+.
+#         For Red Hat family (Fedora 42+, RHEL/CentOS 9+), the OS default Python 3 is used when it meets MIN_PY_VERSION;
+#         otherwise MIN_PY_VERSION is installed via dnf (with source-build fallback).
+#   $2: OS_ID - The operating system ID (ubuntu, debian, fedora, rhel, centos, etc.)
+#   $3: OS_VERSION - The current OS release version (e.g., "20.04" for Ubuntu, "12" for Debian, "42" for Fedora, "9"/"10" for RHEL/CentOS)
 #   $4: MIN_PY_VERSION - The minimum Python version required
 install_python_and_dependencies() {
     local TARGET_INSTALL_PY_VERSION="${1}"
@@ -481,8 +585,8 @@ install_python_and_dependencies() {
         echo -e "${TAG_INFO} No suitable Python installation found. Proceeding with installation..."
         
         # Unified installation process for all supported OS versions
-        if { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "18.04" ]; }; } || \
-           { [ "$OS_ID" = "debian" ] && { [ "$OS_VERSION" = "12" ] || [ "$OS_VERSION" = "11" ]; }; }; then
+        if { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ]; }; } || \
+           { [ "$OS_ID" = "debian" ] && { [ "$OS_VERSION" = "12" ] || [ "$OS_VERSION" = "13" ]; }; }; then
             
             # Step 1: Update apt cache
             echo -e "${TAG_INFO} Updating apt repositories..." >&2
@@ -524,6 +628,54 @@ install_python_and_dependencies() {
             if [ -n "${DX_PYTHON_EXEC_OUT}" ]; then
                 ensure_python_dev_venv_packages "${DX_PYTHON_EXEC_OUT}" "${OS_ID}"
             fi
+
+        elif [ "$OS_ID" = "fedora" ] || [ "$OS_ID" = "rhel" ] || [ "$OS_ID" = "centos" ]; then
+            # Red Hat family - use dnf for Python installation
+            echo -e "${TAG_INFO} Installing Python on ${OS_ID} ${OS_VERSION} via dnf..." >&2
+
+            # Step 1: Try to install python version via dnf
+            local DNF_PY_PKG="python${PY_MAJOR_MINOR}"
+            local DNF_PY_PKG_ALT="python${PY_MAJOR_MINOR//./}"
+
+            if sudo dnf install -y "${DNF_PY_PKG}" "${DNF_PY_PKG}-devel" "${DNF_PY_PKG}-libs" 2>&1 | tee /tmp/dnf_install_python.log >&2; then
+                if command -v "python${PY_MAJOR_MINOR}" &>/dev/null; then
+                    DX_PYTHON_EXEC_OUT="python${PY_MAJOR_MINOR}"
+                    echo -e "${TAG_INFO} Successfully installed python${PY_MAJOR_MINOR} via dnf" >&2
+                else
+                    echo -e "${TAG_WARN} dnf install completed but python${PY_MAJOR_MINOR} command not found, trying alternatives..." >&2
+                fi
+            else
+                echo -e "${TAG_WARN} dnf installation failed for ${DNF_PY_PKG}, trying alternative package name..." >&2
+            fi
+
+            # Step 2: Try alternative package naming (e.g., python3.11 vs python311)
+            if [ -z "${DX_PYTHON_EXEC_OUT}" ]; then
+                if sudo dnf install -y "${DNF_PY_PKG_ALT}" "${DNF_PY_PKG_ALT}-devel" 2>/dev/null; then
+                    if command -v "python${PY_MAJOR_MINOR}" &>/dev/null; then
+                        DX_PYTHON_EXEC_OUT="python${PY_MAJOR_MINOR}"
+                        echo -e "${TAG_INFO} Successfully installed python${PY_MAJOR_MINOR} via dnf (alt pkg name)" >&2
+                    fi
+                fi
+            fi
+
+            # Step 3: If dnf failed, fall back to source build
+            if [ -z "${DX_PYTHON_EXEC_OUT}" ]; then
+                echo -e "${TAG_INFO} Attempting source build for python${PY_MAJOR_MINOR}..." >&2
+                if install_python_via_source_rhel "$TARGET_INSTALL_PY_VERSION" "$PY_MAJOR_MINOR"; then
+                    DX_PYTHON_EXEC_OUT="python${PY_MAJOR_MINOR}"
+                    echo -e "${TAG_INFO} Successfully installed python${PY_MAJOR_MINOR} via source build" >&2
+                else
+                    echo -e "${TAG_ERROR} Both dnf and source build failed for python${PY_MAJOR_MINOR}" >&2
+                    INSTALL_STATUS=1
+                fi
+            fi
+
+            # Step 4: Ensure dev packages are installed
+            if [ -n "${DX_PYTHON_EXEC_OUT}" ]; then
+                ensure_python_dev_venv_packages "${DX_PYTHON_EXEC_OUT}" "${OS_ID}"
+            fi
+            sudo rm -f /tmp/dnf_install_python.log
+
         else
             print_colored "Unsupported OS version: $OS_ID $OS_VERSION" "ERROR"
             INSTALL_STATUS=1
@@ -678,8 +830,12 @@ setup_venv() {
     
     if [ -f /etc/os-release ]; then
         OS_ID=$(grep "^ID=" /etc/os-release | sed 's/^ID=//' | tr -d '"')
+        OS_VERSION=$(grep "^VERSION_ID=" /etc/os-release | sed 's/^VERSION_ID=//' | tr -d '"')
     fi
-    OS_VERSION=$(lsb_release -rs)
+    # Fallback to lsb_release if VERSION_ID not found
+    if [ -z "$OS_VERSION" ]; then
+        OS_VERSION=$(lsb_release -rs 2>/dev/null || echo "")
+    fi
     
     echo -e "${TAG_INFO} *** OS: ${OS_ID} ${OS_VERSION} ***"
 
@@ -688,9 +844,12 @@ setup_venv() {
     # For Ubuntu 24.04 - only upgrade setuptools
     if [ "$OS_ID" = "ubuntu" ] && [ "$OS_VERSION" = "24.04" ]; then
       if ! pip install --upgrade setuptools; then PIP_INSTALL_STATUS=1; fi
-    # For Ubuntu 22.04, 20.04, 18.04 and Debian 11 - upgrade pip, wheel, setuptools
-    elif { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "18.04" ]; }; } || \
-         { [ "$OS_ID" = "debian" ] && { [ "$OS_VERSION" = "11" ] || [ "$OS_VERSION" = "12" ]; }; }; then
+    # For Ubuntu 22.04, 20.04 and Debian 12, 13 - upgrade pip, wheel, setuptools
+    elif { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ]; }; } || \
+         { [ "$OS_ID" = "debian" ] && { [ "$OS_VERSION" = "12" ] || [ "$OS_VERSION" = "13" ]; }; }; then
+      if ! pip install --upgrade pip wheel setuptools; then PIP_INSTALL_STATUS=1; fi
+    # For Red Hat family (Fedora, RHEL, CentOS) - upgrade pip, wheel, setuptools
+    elif [ "$OS_ID" = "fedora" ] || [ "$OS_ID" = "rhel" ] || [ "$OS_ID" = "centos" ]; then
       if ! pip install --upgrade pip wheel setuptools; then PIP_INSTALL_STATUS=1; fi
     else
       echo -e "${TAG_WARN} Unsupported OS version for specific pip upgrade rules: ${OS_ID} ${OS_VERSION}" >&2
@@ -723,17 +882,20 @@ main() {
     local VENV_SYSTEM_SITE_PACKAGES_ARGS=""
     local SKIP_VENV_CREATION="n" # Flag to control venv creation in setup_venv
 
-    # Get OS information using lsb_release (supports both Ubuntu and Debian)
+    # Get OS information using /etc/os-release (supports all Linux distros)
     local OS_ID=""
     local OS_VERSION=""
     
     # Extract OS ID from /etc/os-release
     if [ -f /etc/os-release ]; then
         OS_ID=$(grep "^ID=" /etc/os-release | sed 's/^ID=//' | tr -d '"')
+        OS_VERSION=$(grep "^VERSION_ID=" /etc/os-release | sed 's/^VERSION_ID=//' | tr -d '"')
     fi
     
-    # Get OS version using lsb_release
-    OS_VERSION=$(lsb_release -rs)
+    # Fallback to lsb_release if VERSION_ID not found
+    if [ -z "$OS_VERSION" ]; then
+        OS_VERSION=$(lsb_release -rs 2>/dev/null || echo "")
+    fi
     
     echo -e "${TAG_INFO} Detected OS: ${OS_ID} ${OS_VERSION}"
 

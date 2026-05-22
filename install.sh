@@ -28,6 +28,8 @@ MIN_PY_VERSION="3.8.0"
 # Python version compatibility settings
 # Supported Python versions list (space-separated)
 SUPPORTED_PYTHON_VERSIONS="3.8 3.9 3.10 3.11 3.12"
+# Default Python version to install when none is detected/specified
+DEFAULT_PYTHON_VERSION="3.12"
 # VENV_PATH and VENV_SYMLINK_TARGET_PATH will be set dynamically in install_python_and_venv()
 VENV_PATH=""
 VENV_SYMLINK_TARGET_PATH=""
@@ -39,6 +41,7 @@ TARGET_PKG="all"
 # Installation status flags
 DX_COM_INSTALLED=0
 DX_TRON_INSTALLED=0
+DX_TRON_WEB_ONLY=0
 
 # Properties file path
 VERSION_FILE="$PROJECT_ROOT/compiler.properties"
@@ -250,9 +253,49 @@ check_python_version_compatibility() {
     local CURRENT_PY_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null)
 
     if [ -z "$CURRENT_PY_VERSION" ]; then
-        print_colored "ERROR: Failed to detect Python version." "ERROR"
-        popd >&2
-        exit 1
+        local SUPPORTED_VERSIONS=$(echo "$SUPPORTED_PYTHON_VERSIONS" | sed 's/ /, /g')
+        echo ""
+        print_colored_v2 "WARNING" "===================================================================="
+        print_colored_v2 "WARNING" "  Python 3 is not installed or could not be detected."
+        print_colored_v2 "WARNING" "  Supported Python versions: ${SUPPORTED_VERSIONS}"
+        print_colored_v2 "WARNING" "  Default Python version: ${DEFAULT_PYTHON_VERSION}"
+        print_colored_v2 "WARNING" "===================================================================="
+        echo ""
+
+        # Prompt for version with timeout; on timeout, fall back to default.
+        print_colored "Enter the Python version to install (e.g., 3.11, 3.12)" "WARNING"
+        print_colored "Press Enter to accept the default (${DEFAULT_PYTHON_VERSION}). Default will also be used if no response in 10 seconds." "WARNING"
+
+        local NEW_PY_VERSION=""
+        if read -t 10 -r -p "Python version [${DEFAULT_PYTHON_VERSION}]: " NEW_PY_VERSION; then
+            if [ -z "$NEW_PY_VERSION" ]; then
+                NEW_PY_VERSION="${DEFAULT_PYTHON_VERSION}"
+                print_colored "No version entered. Using default Python ${NEW_PY_VERSION}." "INFO"
+            fi
+        else
+            echo ""
+            NEW_PY_VERSION="${DEFAULT_PYTHON_VERSION}"
+            print_colored "No response received within 10 seconds. Using default Python ${NEW_PY_VERSION}." "INFO"
+        fi
+
+        # Validate against supported list
+        local VERSION_FOUND=0
+        for supported_ver in $SUPPORTED_PYTHON_VERSIONS; do
+            if [ "$NEW_PY_VERSION" = "$supported_ver" ]; then
+                VERSION_FOUND=1
+                break
+            fi
+        done
+        if [ $VERSION_FOUND -eq 0 ]; then
+            print_colored "ERROR: Invalid Python version '${NEW_PY_VERSION}'. Supported versions: ${SUPPORTED_VERSIONS}" "ERROR"
+            popd >&2
+            exit 1
+        fi
+
+        PYTHON_VERSION="$NEW_PY_VERSION"
+        print_colored "Will install Python ${PYTHON_VERSION}..." "INFO"
+        echo -e "=== check_python_version_compatibility() ${TAG_DONE} ==="
+        return 0
     fi
 
     print_colored "Detected Python version: ${CURRENT_PY_VERSION}" "INFO"
@@ -281,34 +324,25 @@ check_python_version_compatibility() {
     print_colored_v2 "WARNING" "  Python version compatibility check failed!"
     print_colored_v2 "WARNING" "  Detected Python version: ${CURRENT_PY_VERSION}"
     print_colored_v2 "WARNING" "  Supported Python versions: ${SUPPORTED_VERSIONS}"
+    print_colored_v2 "WARNING" "  Default Python version: ${DEFAULT_PYTHON_VERSION}"
     print_colored_v2 "WARNING" "===================================================================="
     echo ""
 
-    # Prompt with timeout
-    print_colored "Do you want to continue and install a compatible Python version? (y/n)" "WARNING"
-    print_colored "(Will abort in 10 seconds if no response)" "WARNING"
+    # Prompt for version with timeout; on timeout, fall back to default.
+    print_colored "Enter the Python version to install (e.g., 3.11, 3.12)" "WARNING"
+    print_colored "Press Enter to accept the default (${DEFAULT_PYTHON_VERSION}). Default will also be used if no response in 10 seconds." "WARNING"
 
-    local USER_RESPONSE=""
-    if read -t 10 -r USER_RESPONSE; then
-        if [[ ! "$USER_RESPONSE" =~ ^[Yy]$ ]]; then
-            print_colored "Installation aborted by user." "ERROR"
-            popd >&2
-            exit 1
+    local NEW_PY_VERSION=""
+    if read -t 10 -r -p "Python version [${DEFAULT_PYTHON_VERSION}]: " NEW_PY_VERSION; then
+        if [ -z "$NEW_PY_VERSION" ]; then
+            NEW_PY_VERSION="${DEFAULT_PYTHON_VERSION}"
+            print_colored "No version entered. Using default Python ${NEW_PY_VERSION}." "INFO"
         fi
     else
         echo ""
-        print_colored "No response received within 10 seconds. Aborting installation." "ERROR"
-        popd >&2
-        exit 1
+        NEW_PY_VERSION="${DEFAULT_PYTHON_VERSION}"
+        print_colored "No response received within 10 seconds. Using default Python ${NEW_PY_VERSION}." "INFO"
     fi
-
-    # Ask for Python version to install
-    echo ""
-    print_colored "Please enter the Python version you want to install (e.g., 3.11, 3.12):" "INFO"
-    print_colored "Supported versions: ${SUPPORTED_VERSIONS}" "INFO"
-
-    local NEW_PY_VERSION=""
-    read -r -p "Python version: " NEW_PY_VERSION
 
     # Validate input - check if version is in supported list
     local VERSION_FOUND=0
@@ -449,12 +483,23 @@ show_installation_complete_message() {
         fi
 
         if [ $DX_TRON_INSTALLED -eq 1 ]; then
-            print_colored_v2 "HINT" "  To run dxtron (no virtual environment required):"
-            print_colored_v2 "HINT" "    $ dxtron"
-            print_colored_v2 "HINT" ""
-            print_colored_v2 "HINT" "  Or use the convenience script to start the web server:"
-            print_colored_v2 "HINT" "    $ ./run_dxtron_web.sh --port=8080"
-            print_colored_v2 "HINT" ""
+            if [ $DX_TRON_WEB_ONLY -eq 1 ]; then
+                print_colored_v2 "HINT" "  dxtron (CLI/desktop) is supported only on Debian/Ubuntu family."
+                print_colored_v2 "HINT" "  On Red Hat family (Fedora/RHEL/CentOS), only the web variant is installed."
+                print_colored_v2 "HINT" ""
+                print_colored_v2 "HINT" "  To start the dxtron web server:"
+                print_colored_v2 "HINT" "    $ ./run_dxtron_web.sh --port=8080"
+                print_colored_v2 "HINT" ""
+            else
+                print_colored_v2 "HINT" "  To run dxtron (no virtual environment required):"
+                print_colored_v2 "HINT" "    $ dxtron"
+                print_colored_v2 "HINT" ""
+                print_colored_v2 "HINT" "  Or use the convenience script to start the web server:"
+                print_colored_v2 "HINT" "    $ ./run_dxtron_web.sh --port=8080"
+                print_colored_v2 "HINT" ""
+                print_colored_v2 "HINT" "  Note: the 'dxtron' CLI/desktop binary is supported only on Debian/Ubuntu family."
+                print_colored_v2 "HINT" ""
+            fi
         fi
 
         print_colored_v2 "HINT" "===================================================================="
@@ -646,42 +691,79 @@ install_dx_tron() {
         fi
     fi
 
-    # --- DEB Package Installation (Non-archive mode only) ---
+    # --- Package Installation (Non-archive mode only) ---
     if [ "$ARCHIVE_MODE" != "y" ]; then
         local DX_TRON_DIR="${PROJECT_ROOT}/dx_tron"
         
-        # Detect architecture and select appropriate deb file
-        local ARCH=$(dpkg --print-architecture 2>/dev/null || uname -m)
-        case "$ARCH" in
-            amd64|x86_64) ARCH="amd64" ;;
-            arm64|aarch64) ARCH="arm64" ;;
+        # Detect OS family to determine package format
+        local INSTALL_OS_ID=""
+        if [ -f /etc/os-release ]; then
+            INSTALL_OS_ID=$(grep "^ID=" /etc/os-release | sed 's/^ID=//' | tr -d '"')
+        fi
+
+        # Detect architecture
+        local ARCH=$(uname -m)
+
+        case "$INSTALL_OS_ID" in
+            fedora|rhel|centos)
+                # Red Hat family - install web variant only.
+                # The 'dxtron' CLI/desktop binary (AppImage) is intentionally NOT
+                # installed here: AppImage requires FUSE and is not officially
+                # supported on Red Hat family by this installer. The web variant
+                # (dxtron_*_web) shipped in the dx_tron tarball is sufficient and
+                # can be launched via run_dxtron_web.sh.
+                print_colored "INFO: Red Hat family detected - installing dx_tron web variant only." "INFO"
+                print_colored "INFO: (dxtron CLI/desktop AppImage is supported only on Debian/Ubuntu family.)" "INFO"
+
+                # Verify the web variant exists in the extracted tarball.
+                local WEB_DIR=$(find -L "${DX_TRON_DIR}" -maxdepth 3 -name "*_web" -print -quit 2>/dev/null)
+                if [ -z "$WEB_DIR" ]; then
+                    # Also accept a file named *_web (in case packaging changes)
+                    WEB_DIR=$(find -L "${DX_TRON_DIR}" -maxdepth 3 -name "*_web*" -print -quit 2>/dev/null)
+                fi
+                if [ -z "$WEB_DIR" ]; then
+                    print_colored "ERROR: dx_tron web variant not found under '${DX_TRON_DIR}'." "ERROR"
+                    popd >&2
+                    exit 1
+                fi
+                print_colored "INFO: Found dx_tron web variant: $(basename "$WEB_DIR")" "INFO"
+
+                DX_TRON_WEB_ONLY=1
+                ;;
+            *)
+                # Debian/Ubuntu family - use DEB packages
+                case "$ARCH" in
+                    x86_64) ARCH="amd64" ;;
+                    aarch64) ARCH="arm64" ;;
+                esac
+
+                # Use -L to follow symlinks when searching
+                local DEB_FILE=$(find -L "${DX_TRON_DIR}" -name "*_${ARCH}.deb" -print -quit 2>/dev/null)
+
+                # Fallback to any .deb if architecture-specific not found
+                if [ -z "$DEB_FILE" ]; then
+                    DEB_FILE=$(find -L "${DX_TRON_DIR}" -name "*.deb" -print -quit 2>/dev/null)
+                fi
+
+                if [ -n "$DEB_FILE" ] && [ -f "$DEB_FILE" ]; then
+                    print_colored "INFO: Found DEB package: $(basename "$DEB_FILE")" "INFO"
+                    print_colored "INFO: Installing DX-Tron DEB package..." "INFO"
+
+                    # Update apt and install dependencies, then install deb package
+                    if sudo apt-get update && sudo apt-get install -y "$DEB_FILE"; then
+                        print_colored "INFO: DX-Tron DEB package installed successfully!" "INFO"
+                    else
+                        print_colored "ERROR: Failed to install DX-Tron DEB package '$(basename "$DEB_FILE")'." "ERROR"
+                        popd >&2
+                        exit 1
+                    fi
+                else
+                    print_colored "ERROR: No DEB package found in '${DX_TRON_DIR}'." "ERROR"
+                    popd >&2
+                    exit 1
+                fi
+                ;;
         esac
-        
-        # Use -L to follow symlinks when searching
-        local DEB_FILE=$(find -L "${DX_TRON_DIR}" -name "*_${ARCH}.deb" -print -quit 2>/dev/null)
-        
-        # Fallback to any .deb if architecture-specific not found
-        if [ -z "$DEB_FILE" ]; then
-            DEB_FILE=$(find -L "${DX_TRON_DIR}" -name "*.deb" -print -quit 2>/dev/null)
-        fi
-
-        if [ -n "$DEB_FILE" ] && [ -f "$DEB_FILE" ]; then
-            print_colored "INFO: Found DEB package: $(basename "$DEB_FILE")" "INFO"
-            print_colored "INFO: Installing DX-Tron DEB package..." "INFO"
-
-            # Update apt and install dependencies, then install deb package
-            if sudo apt-get update && sudo apt-get install -y "$DEB_FILE"; then
-                print_colored "INFO: DX-Tron DEB package installed successfully!" "INFO"
-            else
-                print_colored "ERROR: Failed to install DX-Tron DEB package '$(basename "$DEB_FILE")'." "ERROR"
-                popd >&2
-                exit 1
-            fi
-        else
-            print_colored "ERROR: No DEB package found in '${DX_TRON_DIR}'." "ERROR"
-            popd >&2
-            exit 1
-        fi
     fi
 
     echo -e "=== install_dx_tron() ${TAG_DONE} ==="
@@ -697,6 +779,9 @@ os_arch_check() {
     local os_names=""
     local ubuntu_versions=""
     local debian_versions=""
+    local fedora_versions=""
+    local rhel_versions=""
+    local centos_versions=""
     local supported_arch_names=""
     local os_check_error_message=""
     local arch_check_error_message=""
@@ -705,20 +790,26 @@ os_arch_check() {
     local arch_check_hint_message="For other architectures, please refer to the manual installation guide at https://github.com/DEEPX-AI/dx-compiler/blob/main/source/docs/02_01_System_Requirements_of_DX-COM.md"
 
     if [ "$target" == "dx_com" ]; then
-        os_names="ubuntu"
+        os_names="ubuntu fedora rhel centos"
         ubuntu_versions="20.04 22.04 24.04"
         debian_versions=""
+        fedora_versions="42 43 44 45"
+        rhel_versions="9 10"
+        centos_versions="9 10"
         supported_arch_names="amd64 x86_64"
 
-        os_check_error_message="This installer supports only Ubuntu 20.04, 22.04, and 24.04."
+        os_check_error_message="This installer supports only Ubuntu 20.04, 22.04, 24.04 / Fedora 42-45 / RHEL 9-10 / CentOS 9-10."
         arch_check_error_message="This installer supports only x86_64/amd64 architecture."
     elif [ "$target" == "dx_tron" ]; then
-        os_names="ubuntu debian"
+        os_names="ubuntu debian fedora rhel centos"
         ubuntu_versions="20.04 22.04 24.04"
         debian_versions="11 12 13"
+        fedora_versions="42 43 44 45"
+        rhel_versions="9 10"
+        centos_versions="9 10"
         supported_arch_names="amd64 x86_64 arm64 aarch64 armv7l"
 
-        os_check_error_message="This installer supports only Ubuntu 20.04, 22.04, and 24.04 / Debian 11 12 and 13."
+        os_check_error_message="This installer supports only Ubuntu 20.04, 22.04, 24.04 / Debian 11-13 / Fedora 42-45 / RHEL 9-10 / CentOS 9-10."
         arch_check_error_message="This installer supports only x86_64/amd64 and arm64/aarch64/armv7l architecture."
     else
         print_colored_v2 "ERROR" "$1 is not supported target."
@@ -727,8 +818,8 @@ os_arch_check() {
     fi
     
     # this function is defined in scripts/common_util.sh
-    # Usage: os_check "supported_os_names" "ubuntu_versions" "debian_versions"
-    os_check "$os_names" "$ubuntu_versions" "$debian_versions" || {
+    # Usage: os_check "supported_os_names" "ubuntu_versions" "debian_versions" "fedora_versions" "rhel_versions" "centos_versions"
+    os_check "$os_names" "$ubuntu_versions" "$debian_versions" "$fedora_versions" "$rhel_versions" "$centos_versions" || {
         if [ "$print_message_mode" == "silent" ] ; then
             return 1
         else

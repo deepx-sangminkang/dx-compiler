@@ -7,14 +7,35 @@ This section provides instructions for installing **DX-COM** on supported Linux 
 
 ## Pre-Installation Requirements
 
-Before installing **DX-COM**, ensure the following libraries are installed.  
+Before installing **DX-COM**, ensure the following libraries are installed.
 
-- `libgl1-mesa-glx`: Provides OpenGL runtime support for graphical operations  
-- `libglib2.0-0`: Core utility library used by many GNOME and GTK applications  
+- OpenGL runtime support for graphical operations
+    - Debian/Ubuntu: `libgl1-mesa-glx`
+    - Fedora/RHEL/CentOS: `mesa-libGL`
+- Core utility library used by many GNOME and GTK applications
+    - Debian/Ubuntu: `libglib2.0-0`
+    - Fedora/RHEL/CentOS: `glib2`
+- GNU `make`
 
-Run the following command to install the required libraries.  
-```
+Run the command that matches your distribution to install the required libraries.
+
+**Debian / Ubuntu**
+```bash
 sudo apt-get install -y --no-install-recommends libgl1-mesa-glx libglib2.0-0 make
+```
+
+**Fedora**
+```bash
+sudo dnf install -y mesa-libGL glib2 make
+```
+
+**RHEL / CentOS (9, 10)**
+
+`mesa-libGL` lives in the CodeReady Builder (CRB) repository on RHEL/CentOS, so enable it first:
+```bash
+sudo dnf install -y dnf-plugins-core
+sudo dnf config-manager --set-enabled crb        # RHEL/CentOS 9, 10
+sudo dnf install -y mesa-libGL glib2 make
 ```
 
 ---
