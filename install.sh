@@ -791,25 +791,25 @@ os_arch_check() {
 
     if [ "$target" == "dx_com" ]; then
         os_names="ubuntu fedora rhel centos"
-        ubuntu_versions="20.04 22.04 24.04"
+        ubuntu_versions="20.04 22.04 24.04 26.04"
         debian_versions=""
         fedora_versions="42 43 44 45"
         rhel_versions="9 10"
         centos_versions="9 10"
         supported_arch_names="amd64 x86_64"
 
-        os_check_error_message="This installer supports only Ubuntu 20.04, 22.04, 24.04 / Fedora 42-45 / RHEL 9-10 / CentOS 9-10."
+        os_check_error_message="This installer supports only Ubuntu 20.04, 22.04, 24.04, 26.04 / Fedora 42-45 / RHEL 9-10 / CentOS 9-10."
         arch_check_error_message="This installer supports only x86_64/amd64 architecture."
     elif [ "$target" == "dx_tron" ]; then
         os_names="ubuntu debian fedora rhel centos"
-        ubuntu_versions="20.04 22.04 24.04"
+        ubuntu_versions="20.04 22.04 24.04 26.04"
         debian_versions="11 12 13"
         fedora_versions="42 43 44 45"
         rhel_versions="9 10"
         centos_versions="9 10"
         supported_arch_names="amd64 x86_64 arm64 aarch64 armv7l"
 
-        os_check_error_message="This installer supports only Ubuntu 20.04, 22.04, 24.04 / Debian 11-13 / Fedora 42-45 / RHEL 9-10 / CentOS 9-10."
+        os_check_error_message="This installer supports only Ubuntu 20.04, 22.04, 24.04, 26.04 / Debian 11-13 / Fedora 42-45 / RHEL 9-10 / CentOS 9-10."
         arch_check_error_message="This installer supports only x86_64/amd64 and arm64/aarch64/armv7l architecture."
     else
         print_colored_v2 "ERROR" "$1 is not supported target."
@@ -882,9 +882,17 @@ main() {
             print_colored "Installing all compiler modules..." "INFO"
             validate_environment
 
-            # Check if dx_com will be installed (has stricter Python version requirements)
+            # In archive mode, skip OS checks - just download all modules
+            # (the target Docker image OS differs from the host OS)
             local WILL_INSTALL_DX_COM=0
-            os_arch_check "dx_com" "silent" && WILL_INSTALL_DX_COM=1
+            local WILL_INSTALL_DX_TRON=0
+            if [ "$ARCHIVE_MODE" = "y" ]; then
+                WILL_INSTALL_DX_COM=1
+                WILL_INSTALL_DX_TRON=1
+            else
+                os_arch_check "dx_com" "silent" && WILL_INSTALL_DX_COM=1
+                os_arch_check "dx_tron" "silent" && WILL_INSTALL_DX_TRON=1
+            fi
 
             # If dx_com will be installed, check Python version compatibility first
             # This ensures venv is created with a compatible Python version for both modules
@@ -895,11 +903,11 @@ main() {
             install_python_and_venv
             setup_project
 
-            os_arch_check "dx_tron" "silent" && {
+            if [ $WILL_INSTALL_DX_TRON -eq 1 ]; then
                 install_dx_tron
-            } || {
+            else
                 print_colored_v2 "SKIP" "dx-tron is not supported on this OS/Architecture. Skipping dx-tron installation."
-            }
+            fi
 
             if [ $WILL_INSTALL_DX_COM -eq 1 ]; then
                 install_prerequisites

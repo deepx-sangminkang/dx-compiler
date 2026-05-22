@@ -841,8 +841,8 @@ setup_venv() {
 
     local PIP_INSTALL_STATUS=0
     
-    # For Ubuntu 24.04 - only upgrade setuptools
-    if [ "$OS_ID" = "ubuntu" ] && [ "$OS_VERSION" = "24.04" ]; then
+    # For Ubuntu 24.04, 26.04 - only upgrade setuptools
+    if [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "26.04" ]; }; then
       if ! pip install --upgrade setuptools; then PIP_INSTALL_STATUS=1; fi
     # For Ubuntu 22.04, 20.04 and Debian 12, 13 - upgrade pip, wheel, setuptools
     elif { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ]; }; } || \
