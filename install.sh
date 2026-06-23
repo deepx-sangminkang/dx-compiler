@@ -463,16 +463,37 @@ check_python_version_compatibility() {
         exit 1
     fi
 
-    # Version is at or above the minimum but not in the supported list: warn but
-    # continue using it.
-    echo ""
-    print_colored_v2 "WARNING" "===================================================================="
-    print_colored_v2 "WARNING" "  Detected Python version is newer than the supported list."
-    print_colored_v2 "WARNING" "  Detected Python version: ${CURRENT_PY_VERSION}"
-    print_colored_v2 "WARNING" "  Supported Python versions: ${SUPPORTED_VERSIONS}"
-    print_colored_v2 "WARNING" "  Proceeding with the detected Python version."
-    print_colored_v2 "WARNING" "===================================================================="
-    echo ""
+    # Version is at or above the minimum but not in the supported list (e.g.
+    # python3.15 on Fedora 45). If no explicit --python_version was given, redirect
+    # to the latest supported version so the installer does not silently use an
+    # untested interpreter.  When the user has explicitly pinned a version via
+    # --python_version we honour that choice and only warn.
+    if [ -n "$PYTHON_VERSION" ]; then
+        # Explicit user request: warn but respect it.
+        echo ""
+        print_colored_v2 "WARNING" "===================================================================="
+        print_colored_v2 "WARNING" "  Detected Python version is newer than the supported list."
+        print_colored_v2 "WARNING" "  Detected Python version: ${CURRENT_PY_VERSION}"
+        print_colored_v2 "WARNING" "  Supported Python versions: ${SUPPORTED_VERSIONS}"
+        print_colored_v2 "WARNING" "  Proceeding with user-specified Python ${PYTHON_VERSION}."
+        print_colored_v2 "WARNING" "===================================================================="
+        echo ""
+    else
+        # No explicit request: redirect to the latest supported version.
+        local LATEST_SUPPORTED_PY=""
+        for _sv in $SUPPORTED_PYTHON_VERSIONS; do
+            LATEST_SUPPORTED_PY="$_sv"
+        done
+        echo ""
+        print_colored_v2 "WARNING" "===================================================================="
+        print_colored_v2 "WARNING" "  Detected Python version is newer than the supported list."
+        print_colored_v2 "WARNING" "  Detected Python version: ${CURRENT_PY_VERSION}"
+        print_colored_v2 "WARNING" "  Supported Python versions: ${SUPPORTED_VERSIONS}"
+        print_colored_v2 "WARNING" "  Redirecting to Python ${LATEST_SUPPORTED_PY} (latest supported)."
+        print_colored_v2 "WARNING" "===================================================================="
+        echo ""
+        PYTHON_VERSION="$LATEST_SUPPORTED_PY"
+    fi
 
     echo -e "=== check_python_version_compatibility() ${TAG_DONE} ==="
 }

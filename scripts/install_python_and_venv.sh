@@ -71,7 +71,7 @@ is_python_installed() {
     local OS_VERSION="${2}"
     local REQUESTED_PY_VERSION="${3}"
     local MIN_REQUIRED_PY_VERSION="${4}"
-    local PYTHON_EXECUTABLES=("python3.12" "python3.11" "python3.10" "python3.9" "python3.8" "python3") # Order matters: higher to lower
+    local PYTHON_EXECUTABLES=("python3.14" "python3.13" "python3.12" "python3.11" "python3.10" "python3.9" "python3.8" "python3") # Order matters: higher to lower
 
     local REQ_VER_NUM=0
     if [ -n "${REQUESTED_PY_VERSION}" ]; then
