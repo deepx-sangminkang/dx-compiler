@@ -154,11 +154,16 @@ case "$OS_ID" in
 
         # Essential build/runtime headers. Verified explicitly after install so
         # a missing one surfaces here, not during the later Python source build.
+        # ponytail: Fedora 40+ replaces zlib-devel with zlib-ng-compat-devel
+        ZLIB_PKG="zlib-devel"
+        if [ "$OS_ID" = "fedora" ]; then
+            ZLIB_PKG="zlib-ng-compat-devel"
+        fi
         ESSENTIAL_RPMS=(
             mesa-libGL-devel
             openssl-devel
             ncurses-devel
-            zlib-devel
+            "$ZLIB_PKG"
             libffi-devel
             bzip2-devel
             xz-devel
@@ -212,8 +217,10 @@ case "$OS_ID" in
             rpm -q "$pkg" >/dev/null 2>&1 || MISSING_RPMS+=("$pkg")
         done
         if [ "${#MISSING_RPMS[@]}" -gt 0 ]; then
+            OS_MAJOR_VERSION="${OS_VERSION_ID%%.*}"
             echo "ERROR: The following essential packages were not installed: ${MISSING_RPMS[*]}"
             echo "       They are likely provided by the CRB/PowerTools or EPEL repositories."
+            echo "       On UBI containers, ensure 'ubi-${OS_MAJOR_VERSION}-codeready-builder' is enabled."
             echo "       Ensure those repositories are enabled and re-run this script."
             exit 1
         fi

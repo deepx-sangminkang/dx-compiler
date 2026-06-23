@@ -889,7 +889,7 @@ setup_venv() {
         echo -e "${TAG_INFO} Creating symbolic link from ${VENV_PATH} to ${VENV_ORIGIN_DIR}..."
         
         # Remove any existing symlink or directory at VENV_PATH
-        if [ -e "${VENV_PATH}" ]; then
+        if [ -e "${VENV_PATH}" ] || [ -L "${VENV_PATH}" ]; then
             sudo rm -rf "${VENV_PATH}"
         fi
         
@@ -1058,7 +1058,7 @@ main() {
         fi
         
         for CHECK_PATH in "${CHECK_PATHS[@]}"; do
-            if [ -e "$CHECK_PATH" ]; then # Path exists
+            if [ -e "$CHECK_PATH" ] || [ -L "$CHECK_PATH" ]; then # Path exists
                 if [ "${FORCE_REMOVE_VENV}" = "y" ]; then
                     echo -e "${TAG_INFO} --venv-force-remove specified. Removing existing path at ${CHECK_PATH}..." >&2
                     if ! sudo rm -rf "${CHECK_PATH}"; then
@@ -1075,7 +1075,7 @@ main() {
                             echo -e "${TAG_WARN} --venv-reuse specified, but existing virtual environment at ${VENV_PATH} is invalid. Attempting to recreate it." >&2
                             # Remove both paths if invalid
                             for REMOVE_PATH in "${CHECK_PATHS[@]}"; do
-                                if [ -e "${REMOVE_PATH}" ]; then
+                                if [ -e "${REMOVE_PATH}" ] || [ -L "${REMOVE_PATH}" ]; then
                                     if ! sudo rm -rf "${REMOVE_PATH}"; then
                                         print_colored "Failed to remove invalid path at ${REMOVE_PATH}. Aborting." "ERROR" >&2
                                         exit 1

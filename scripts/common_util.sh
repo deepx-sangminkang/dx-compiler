@@ -84,15 +84,41 @@ enable_rhel_extra_repos() {
     sudo dnf install -y dnf-plugins-core 2>/dev/null || true
 
     # Enable CodeReady Builder / PowerTools (name varies by distro+version).
+    # ponytail: ubi-9/10-codeready-builder is the UBI container repo name
     sudo dnf config-manager --set-enabled crb 2>/dev/null \
         || sudo dnf config-manager --set-enabled powertools 2>/dev/null \
         || sudo dnf config-manager --set-enabled "codeready-builder-for-rhel-${OS_MAJOR_VERSION}-$(uname -m)-rpms" 2>/dev/null \
+        || sudo dnf config-manager --set-enabled "ubi-${OS_MAJOR_VERSION}-codeready-builder-rpms" 2>/dev/null \
+        || sudo dnf config-manager --set-enabled "ubi-${OS_MAJOR_VERSION}-codeready-builder" 2>/dev/null \
         || true
 
     # Install EPEL for the detected major version (best effort).
     sudo dnf install -y "https://dl.fedoraproject.org/pub/epel/epel-release-latest-${OS_MAJOR_VERSION}.noarch.rpm" 2>/dev/null \
         || sudo dnf install -y epel-release 2>/dev/null \
         || true
+
+    # For unsubscribed UBI or RHEL containers, base development packages like
+    # mesa-libGL-devel and gdbm-devel are missing from the public subset repos.
+    # We configure CentOS Stream AppStream/CRB as fallbacks if they cannot be found.
+    if command -v dnf >/dev/null 2>&1; then
+        if ! dnf list gdbm-devel >/dev/null 2>&1 || ! dnf list mesa-libGL-devel >/dev/null 2>&1; then
+            local fallback_ver="${OS_MAJOR_VERSION:-9}"
+            print_colored "Some developer packages are missing. Configuring CentOS Stream ${fallback_ver} fallback repositories..." "INFO"
+            cat <<EOF | sudo tee /etc/yum.repos.d/centos-stream-fallback.repo >/dev/null
+[centos-stream-appstream-fallback]
+name=CentOS Stream ${fallback_ver} - AppStream Fallback
+baseurl=https://mirror.stream.centos.org/${fallback_ver}-stream/AppStream/\$basearch/os/
+gpgcheck=0
+enabled=1
+
+[centos-stream-crb-fallback]
+name=CentOS Stream ${fallback_ver} - CRB Fallback
+baseurl=https://mirror.stream.centos.org/${fallback_ver}-stream/CRB/\$basearch/os/
+gpgcheck=0
+enabled=1
+EOF
+        fi
+    fi
 }
 
 check_virtualenv() {
@@ -426,7 +452,7 @@ delete_dir() {
     # Use shell globbing to expand wildcards
     # This will handle patterns like "build_*", "*.log", etc.
     for expanded_path in $path; do
-        if [ -e "$expanded_path" ]; then
+        if [ -e "$expanded_path" ] || [ -L "$expanded_path" ]; then
             print_colored_v2 "INFO" "Deleting path: $expanded_path"
             
             # First attempt: try to delete without sudo
@@ -460,7 +486,7 @@ delete_dir() {
     done
     
     # If no files matched the pattern, show appropriate message
-    if [ ! -e "$path" ] && [[ "$path" == *"*"* ]]; then
+    if [ ! -e "$path" ] && [ ! -L "$path" ] && [[ "$path" == *"*"* ]]; then
         print_colored_v2 "DEBUG" "No paths found matching pattern: $path"
     fi
 }
