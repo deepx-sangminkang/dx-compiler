@@ -236,8 +236,10 @@ install_python_and_venv() {
 # requested, so whatever python3 the OS ships with is installed.
 install_os_default_python3() {
     local OS_ID=""
+    local OS_VERSION_ID=""
     if [ -f /etc/os-release ]; then
         OS_ID=$(grep "^ID=" /etc/os-release | sed 's/^ID=//' | tr -d '"')
+        OS_VERSION_ID=$(grep "^VERSION_ID=" /etc/os-release | sed 's/^VERSION_ID=//' | tr -d '"')
     fi
 
     print_colored "Installing the OS default Python 3..." "INFO"
@@ -265,6 +267,48 @@ install_os_default_python3() {
             sudo apt-get install -y python3 python3-venv python3-dev
             ;;
         fedora|rhel|centos)
+            # On Fedora, check whether the default python3 package maps to an
+            # unsupported version before installing it.  Fedora 45 ships
+            # python3.15 as its default, which is not yet in SUPPORTED_PYTHON_VERSIONS.
+            # In that case, emit an INFO notice and install the latest supported
+            # Python version instead so the rest of the install can proceed.
+            local DEFAULT_FEDORA_PY_VER=""
+            if [ "$OS_ID" = "fedora" ]; then
+                # Resolve the version that 'python3' would pull in without installing.
+                DEFAULT_FEDORA_PY_VER=$(dnf repoquery --quiet --qf '%{version}' python3 2>/dev/null \
+                    | grep -E '^[0-9]+\.[0-9]+' | sort -V | tail -1)
+                # Strip patch component if present (e.g. "3.15.0" -> "3.15").
+                DEFAULT_FEDORA_PY_VER="${DEFAULT_FEDORA_PY_VER%.*}"
+            fi
+
+            local IS_DEFAULT_SUPPORTED=false
+            if [ -n "$DEFAULT_FEDORA_PY_VER" ]; then
+                for _sv in $SUPPORTED_PYTHON_VERSIONS; do
+                    if [ "$DEFAULT_FEDORA_PY_VER" = "$_sv" ]; then
+                        IS_DEFAULT_SUPPORTED=true
+                        break
+                    fi
+                done
+            else
+                # Could not probe: assume it's fine and let the post-install
+                # version check below catch any mismatch.
+                IS_DEFAULT_SUPPORTED=true
+            fi
+
+            if [ "$IS_DEFAULT_SUPPORTED" = false ]; then
+                # Determine the latest entry in SUPPORTED_PYTHON_VERSIONS.
+                local LATEST_SUPPORTED_PY=""
+                for _sv in $SUPPORTED_PYTHON_VERSIONS; do
+                    LATEST_SUPPORTED_PY="$_sv"
+                done
+                print_colored "Fedora ${OS_VERSION_ID:-} OS Default python3 version is ${DEFAULT_FEDORA_PY_VER} which is not supported. Installing python${LATEST_SUPPORTED_PY}." "INFO"
+                PYTHON_VERSION="$LATEST_SUPPORTED_PY"
+                # Return early: install_python_and_venv() will handle the
+                # actual installation of the chosen version via its normal path.
+                echo -e "=== install_os_default_python3() redirected to python${LATEST_SUPPORTED_PY} ==="
+                return 0
+            fi
+
             sudo dnf install -y python3 python3-devel
             ;;
         *)
