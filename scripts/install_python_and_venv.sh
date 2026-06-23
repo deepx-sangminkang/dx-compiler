@@ -393,12 +393,28 @@ install_python_via_source_rhel() {
     # otherwise mask install failures (tee almost always returns 0) and let
     # the source build proceed without required headers, surfacing as
     # opaque ./configure or make errors later.
+    #
+    # ponytail: RHEL/CentOS 10+ (and Fedora 40+) replaced zlib-devel with
+    # zlib-ng-compat-devel. Detect the major version from /etc/os-release here
+    # so the correct package name is used without relying on a global variable.
+    local _ZLIB_BUILD_PKG="zlib-devel"
+    if [ -f /etc/os-release ]; then
+        local _SRC_OS_ID _SRC_OS_VER _SRC_OS_MAJOR
+        _SRC_OS_ID=$(grep "^ID=" /etc/os-release | sed 's/^ID=//' | tr -d '"')
+        _SRC_OS_VER=$(grep "^VERSION_ID=" /etc/os-release | sed 's/^VERSION_ID=//' | tr -d '"')
+        _SRC_OS_MAJOR="${_SRC_OS_VER%%.*}"
+        if [ "${_SRC_OS_ID}" = "fedora" ] \
+            || { { [ "${_SRC_OS_ID}" = "rhel" ] || [ "${_SRC_OS_ID}" = "centos" ]; } \
+                 && [ "${_SRC_OS_MAJOR}" -ge 10 ] 2>/dev/null; }; then
+            _ZLIB_BUILD_PKG="zlib-ng-compat-devel"
+        fi
+    fi
     sudo dnf install -y \
         gcc gcc-c++ make \
         wget curl \
         ca-certificates \
         openssl-devel \
-        zlib-devel \
+        "${_ZLIB_BUILD_PKG}" \
         ncurses-devel \
         readline-devel \
         sqlite-devel \

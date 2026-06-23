@@ -154,9 +154,13 @@ case "$OS_ID" in
 
         # Essential build/runtime headers. Verified explicitly after install so
         # a missing one surfaces here, not during the later Python source build.
-        # ponytail: Fedora 40+ replaces zlib-devel with zlib-ng-compat-devel
+        # ponytail: Fedora 40+ and RHEL/CentOS 10+ replace zlib-devel with
+        # zlib-ng-compat-devel (zlib-ng-compat provides the zlib-devel capability).
         ZLIB_PKG="zlib-devel"
-        if [ "$OS_ID" = "fedora" ]; then
+        OS_MAJOR_VERSION_TMP="${OS_VERSION_ID%%.*}"
+        if [ "$OS_ID" = "fedora" ] \
+            || { [ "$OS_ID" = "rhel" ] || [ "$OS_ID" = "centos" ]; } \
+               && [ "${OS_MAJOR_VERSION_TMP}" -ge 10 ] 2>/dev/null; then
             ZLIB_PKG="zlib-ng-compat-devel"
         fi
         ESSENTIAL_RPMS=(

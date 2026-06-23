@@ -98,13 +98,38 @@ enable_rhel_extra_repos() {
         || true
 
     # For unsubscribed UBI or RHEL containers, base development packages like
-    # mesa-libGL-devel and gdbm-devel are missing from the public subset repos.
+    # mesa-libGL-devel, gdbm-devel, and zlib-ng-compat-devel (RHEL/CentOS 10+)
+    # or zlib-devel (RHEL/CentOS 9) are missing from the public subset repos.
     # We configure CentOS Stream AppStream/CRB as fallbacks if they cannot be found.
     if command -v dnf >/dev/null 2>&1; then
-        if ! dnf list gdbm-devel >/dev/null 2>&1 || ! dnf list mesa-libGL-devel >/dev/null 2>&1; then
+        # On RHEL/CentOS 10+, zlib-devel is provided by zlib-ng-compat-devel.
+        local _ZLIB_CHECK_PKG="zlib-devel"
+        if [ "${OS_MAJOR_VERSION}" -ge 10 ] 2>/dev/null; then
+            _ZLIB_CHECK_PKG="zlib-ng-compat-devel"
+        fi
+        if ! dnf list gdbm-devel >/dev/null 2>&1 \
+            || ! dnf list mesa-libGL-devel >/dev/null 2>&1 \
+            || ! dnf list "${_ZLIB_CHECK_PKG}" >/dev/null 2>&1; then
             local fallback_ver="${OS_MAJOR_VERSION:-9}"
             print_colored "Some developer packages are missing. Configuring CentOS Stream ${fallback_ver} fallback repositories..." "INFO"
-            cat <<EOF | sudo tee /etc/yum.repos.d/centos-stream-fallback.repo >/dev/null
+            # CentOS Stream 10+ recommends metalink for mirror selection;
+            # older versions support both metalink and baseurl.
+            if [ "${fallback_ver}" -ge 10 ] 2>/dev/null; then
+                cat <<EOF | sudo tee /etc/yum.repos.d/centos-stream-fallback.repo >/dev/null
+[centos-stream-appstream-fallback]
+name=CentOS Stream ${fallback_ver} - AppStream Fallback
+metalink=https://mirrors.centos.org/metalink?repo=centos-AppStream-${fallback_ver}-stream&arch=\$basearch
+gpgcheck=0
+enabled=1
+
+[centos-stream-crb-fallback]
+name=CentOS Stream ${fallback_ver} - CRB Fallback
+metalink=https://mirrors.centos.org/metalink?repo=centos-CRB-${fallback_ver}-stream&arch=\$basearch
+gpgcheck=0
+enabled=1
+EOF
+            else
+                cat <<EOF | sudo tee /etc/yum.repos.d/centos-stream-fallback.repo >/dev/null
 [centos-stream-appstream-fallback]
 name=CentOS Stream ${fallback_ver} - AppStream Fallback
 baseurl=https://mirror.stream.centos.org/${fallback_ver}-stream/AppStream/\$basearch/os/
@@ -117,6 +142,7 @@ baseurl=https://mirror.stream.centos.org/${fallback_ver}-stream/CRB/\$basearch/o
 gpgcheck=0
 enabled=1
 EOF
+            fi
         fi
     fi
 }
