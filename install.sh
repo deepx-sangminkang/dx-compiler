@@ -674,20 +674,21 @@ install_dx_com() {
             "--no-deps"
             "--only-binary=:all:"
             "--python-version" "${PYTHON_VERSION_TAG#cp}"
-            "dx-com==${COM_VERSION}"
         )
 
+        local ARCHIVED_COM_FILE
         if [ "$USE_PYPI" -eq 1 ]; then
-            pip download "${PIP_DOWNLOAD_ARGS[@]}" || { print_colored "Failed to download dx-com for archiving." "ERROR"; popd >&2; exit 1; }
+            # PyPI: download the latest dx-com (no version pin).
+            pip download "${PIP_DOWNLOAD_ARGS[@]}" "dx-com" || { print_colored "Failed to download dx-com for archiving." "ERROR"; popd >&2; exit 1; }
+            ARCHIVED_COM_FILE=$(find "$ARCHIVE_DIR" -name "dx_com-*.whl" -type f | head -1)
         else
             local COM_FIND_LINKS="https://sdk.deepx.ai/release/dxcom/v${COM_VERSION}/index.html"
+            # DEEPX release index: pin the exact version from compiler.properties.
             # --no-index disables PyPI so that only the DEEPX find-links source is used.
             # Safe here because PIP_DOWNLOAD_ARGS includes --no-deps (no transitive deps to resolve).
-            pip download "${PIP_DOWNLOAD_ARGS[@]}" --no-index -f "$COM_FIND_LINKS" || { print_colored "Failed to download dx-com for archiving." "ERROR"; popd >&2; exit 1; }
+            pip download "${PIP_DOWNLOAD_ARGS[@]}" "dx-com==${COM_VERSION}" --no-index -f "$COM_FIND_LINKS" || { print_colored "Failed to download dx-com for archiving." "ERROR"; popd >&2; exit 1; }
+            ARCHIVED_COM_FILE=$(find "$ARCHIVE_DIR" -name "dx_com-${COM_VERSION}*.whl" -type f | head -1)
         fi
-
-        local ARCHIVED_COM_FILE
-        ARCHIVED_COM_FILE=$(find "$ARCHIVE_DIR" -name "dx_com-${COM_VERSION}*.whl" -type f | head -1)
         if [ -n "$ARCHIVED_COM_FILE" ] && [ -n "$ARCHIVE_OUTPUT_FILE" ]; then
             echo "ARCHIVED_COM_FILE=${ARCHIVED_COM_FILE}" >> "$ARCHIVE_OUTPUT_FILE"
         fi
