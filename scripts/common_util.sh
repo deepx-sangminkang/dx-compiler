@@ -81,70 +81,10 @@ enable_rhel_extra_repos() {
     local OS_MAJOR_VERSION="${OS_VERSION_ID%%.*}"
 
     # Ensure dnf-plugins-core is available (provides 'config-manager').
-    sudo dnf install -y dnf-plugins-core 2>/dev/null || true
+    sudo dnf install -y dnf-plugins-core
 
-    # Enable CodeReady Builder / PowerTools (name varies by distro+version).
-    # ponytail: ubi-9/10-codeready-builder is the UBI container repo name
-    sudo dnf config-manager --set-enabled crb 2>/dev/null \
-        || sudo dnf config-manager --set-enabled powertools 2>/dev/null \
-        || sudo dnf config-manager --set-enabled "codeready-builder-for-rhel-${OS_MAJOR_VERSION}-$(uname -m)-rpms" 2>/dev/null \
-        || sudo dnf config-manager --set-enabled "ubi-${OS_MAJOR_VERSION}-codeready-builder-rpms" 2>/dev/null \
-        || sudo dnf config-manager --set-enabled "ubi-${OS_MAJOR_VERSION}-codeready-builder" 2>/dev/null \
-        || true
-
-    # Install EPEL for the detected major version (best effort).
-    sudo dnf install -y "https://dl.fedoraproject.org/pub/epel/epel-release-latest-${OS_MAJOR_VERSION}.noarch.rpm" 2>/dev/null \
-        || sudo dnf install -y epel-release 2>/dev/null \
-        || true
-
-    # For unsubscribed UBI or RHEL containers, base development packages like
-    # mesa-libGL-devel, gdbm-devel, and zlib-ng-compat-devel (RHEL/CentOS 10+)
-    # or zlib-devel (RHEL/CentOS 9) are missing from the public subset repos.
-    # We configure CentOS Stream AppStream/CRB as fallbacks if they cannot be found.
-    if command -v dnf >/dev/null 2>&1; then
-        # On RHEL/CentOS 10+, zlib-devel is provided by zlib-ng-compat-devel.
-        local _ZLIB_CHECK_PKG="zlib-devel"
-        if [ "${OS_MAJOR_VERSION}" -ge 10 ] 2>/dev/null; then
-            _ZLIB_CHECK_PKG="zlib-ng-compat-devel"
-        fi
-        if ! dnf list gdbm-devel >/dev/null 2>&1 \
-            || ! dnf list mesa-libGL-devel >/dev/null 2>&1 \
-            || ! dnf list "${_ZLIB_CHECK_PKG}" >/dev/null 2>&1; then
-            local fallback_ver="${OS_MAJOR_VERSION:-9}"
-            print_colored "Some developer packages are missing. Configuring CentOS Stream ${fallback_ver} fallback repositories..." "INFO"
-            # CentOS Stream 10+ recommends metalink for mirror selection;
-            # older versions support both metalink and baseurl.
-            if [ "${fallback_ver}" -ge 10 ] 2>/dev/null; then
-                cat <<EOF | sudo tee /etc/yum.repos.d/centos-stream-fallback.repo >/dev/null
-[centos-stream-appstream-fallback]
-name=CentOS Stream ${fallback_ver} - AppStream Fallback
-metalink=https://mirrors.centos.org/metalink?repo=centos-AppStream-${fallback_ver}-stream&arch=\$basearch
-gpgcheck=0
-enabled=1
-
-[centos-stream-crb-fallback]
-name=CentOS Stream ${fallback_ver} - CRB Fallback
-metalink=https://mirrors.centos.org/metalink?repo=centos-CRB-${fallback_ver}-stream&arch=\$basearch
-gpgcheck=0
-enabled=1
-EOF
-            else
-                cat <<EOF | sudo tee /etc/yum.repos.d/centos-stream-fallback.repo >/dev/null
-[centos-stream-appstream-fallback]
-name=CentOS Stream ${fallback_ver} - AppStream Fallback
-baseurl=https://mirror.stream.centos.org/${fallback_ver}-stream/AppStream/\$basearch/os/
-gpgcheck=0
-enabled=1
-
-[centos-stream-crb-fallback]
-name=CentOS Stream ${fallback_ver} - CRB Fallback
-baseurl=https://mirror.stream.centos.org/${fallback_ver}-stream/CRB/\$basearch/os/
-gpgcheck=0
-enabled=1
-EOF
-            fi
-        fi
-    fi
+    # Enable crb
+    sudo dnf config-manager --set-enabled crb
 }
 
 check_virtualenv() {

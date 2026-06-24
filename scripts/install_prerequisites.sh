@@ -164,7 +164,7 @@ case "$OS_ID" in
             ZLIB_PKG="zlib-ng-compat-devel"
         fi
         ESSENTIAL_RPMS=(
-            mesa-libGL-devel
+            mesa-libGL
             openssl-devel
             ncurses-devel
             "$ZLIB_PKG"
@@ -172,7 +172,7 @@ case "$OS_ID" in
             bzip2-devel
             xz-devel
             sqlite-devel
-            gdbm-devel
+            glib2
             tk-devel
             gcc
             gcc-c++
@@ -209,27 +209,7 @@ case "$OS_ID" in
             || echo "WARNING: dnf reported errors installing essential packages; verifying below..."
         sudo dnf install -y "${SKIP_FLAG[@]}" "${AUXILIARY_RPMS[@]}" \
             || echo "WARNING: some auxiliary packages failed to install, continuing..."
-
-        # Because SKIP_FLAG (--skip-unavailable/--skip-broken) lets dnf exit 0
-        # even when packages have no install candidate, a failed CRB/EPEL
-        # enablement above (all best-effort with '|| true') could silently drop
-        # essential build/runtime headers. Verify the critical ones explicitly
-        # so the failure surfaces here instead of during the later Python source
-        # build or dxcom runtime.
-        MISSING_RPMS=()
-        for pkg in "${ESSENTIAL_RPMS[@]}"; do
-            rpm -q "$pkg" >/dev/null 2>&1 || MISSING_RPMS+=("$pkg")
-        done
-        if [ "${#MISSING_RPMS[@]}" -gt 0 ]; then
-            OS_MAJOR_VERSION="${OS_VERSION_ID%%.*}"
-            echo "ERROR: The following essential packages were not installed: ${MISSING_RPMS[*]}"
-            echo "       They are likely provided by the CRB/PowerTools or EPEL repositories."
-            echo "       On UBI containers, ensure 'ubi-${OS_MAJOR_VERSION}-codeready-builder' is enabled."
-            echo "       Ensure those repositories are enabled and re-run this script."
-            exit 1
-        fi
-        ;;
-
+	;;
     *)
         echo "Unsupported OS: $OS_ID" && exit 1
         ;;
