@@ -725,7 +725,7 @@ install_dx_com() {
 
     if [ "$USE_PYPI" -eq 1 ]; then
         print_colored "Installing dx-com from PyPI..." "INFO"
-        if pip install "dx-com==${COM_VERSION}"; then
+        if pip install "dx-com"; then
             print_colored "dx-com installed successfully from PyPI!" "INFO"
         else
             print_colored "Failed to install dx-com from PyPI." "ERROR"
