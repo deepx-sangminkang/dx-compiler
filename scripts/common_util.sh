@@ -62,9 +62,12 @@ check_container_mode() {
 # Enable the CRB/PowerTools and EPEL repositories on RHEL/CentOS so that devel
 # packages (e.g. gdbm-devel, tk-devel, readline-devel, mesa-libGL-devel) and
 # EPEL-only packages are installable. Fedora ships these in its default repos,
-# so it is skipped. All steps are best-effort: callers that require specific
-# packages should still verify them after installation. Self-contained (detects
-# the OS internally) so it can be called from any dnf-based install path.
+# so it is skipped. Every step is best-effort ('|| true'): the repo name varies
+# by distro+version and some images (e.g. minimal UBI) lack a CRB/EPEL
+# definition entirely, so a failure here must never abort the caller. Callers
+# that require specific packages should still verify them after installation.
+# Self-contained (detects the OS internally) so it can be called from any
+# dnf-based install path.
 enable_rhel_extra_repos() {
     local OS_ID=""
     local OS_VERSION_ID=""
@@ -81,10 +84,10 @@ enable_rhel_extra_repos() {
     local OS_MAJOR_VERSION="${OS_VERSION_ID%%.*}"
 
     # Ensure dnf-plugins-core is available (provides 'config-manager').
-    sudo dnf install -y dnf-plugins-core
+    sudo dnf install -y dnf-plugins-core 2>/dev/null || true
 
-    # Enable crb
-    sudo dnf config-manager --set-enabled crb
+    # Enable CodeReady Builder (CRB).
+    sudo dnf config-manager --set-enabled crb 2>/dev/null || true
 }
 
 check_virtualenv() {

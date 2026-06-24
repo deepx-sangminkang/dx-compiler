@@ -716,7 +716,13 @@ install_dx_com() {
     fi
 
     # Install dx-com via pip
-    print_colored "Installing dx-com (Version: $COM_VERSION)..." "INFO"
+    if [ "$USE_PYPI" -eq 1 ]; then
+        # PyPI path installs the latest published dx-com (no version pin), so
+        # COM_VERSION from compiler.properties does not apply here.
+        print_colored "Installing dx-com (latest from PyPI)..." "INFO"
+    else
+        print_colored "Installing dx-com (Version: $COM_VERSION)..." "INFO"
+    fi
 
     # If force mode is enabled, uninstall existing dx-com first
     if [ -n "$FORCE_ARGS" ]; then

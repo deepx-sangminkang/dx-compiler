@@ -152,15 +152,19 @@ case "$OS_ID" in
             SKIP_FLAG=(--skip-broken)
         fi
 
-        # Essential build/runtime headers. Verified explicitly after install so
-        # a missing one surfaces here, not during the later Python source build.
+        # Essential build/runtime headers. Verified after install (non-fatal
+        # WARNING) so a missing one surfaces here, not as an opaque error during
+        # the later Python source build.
         # ponytail: Fedora 40+ and RHEL/CentOS 10+ replace zlib-devel with
         # zlib-ng-compat-devel (zlib-ng-compat provides the zlib-devel capability).
         ZLIB_PKG="zlib-devel"
         OS_MAJOR_VERSION_TMP="${OS_VERSION_ID%%.*}"
+        # Group the rhel/centos test with the version check so the major>=10
+        # bound applies only to them, not to Fedora (all Fedora releases use
+        # zlib-ng-compat-devel). Matches install_python_and_venv.sh's grouping.
         if [ "$OS_ID" = "fedora" ] \
-            || { [ "$OS_ID" = "rhel" ] || [ "$OS_ID" = "centos" ]; } \
-               && [ "${OS_MAJOR_VERSION_TMP}" -ge 10 ] 2>/dev/null; then
+            || { { [ "$OS_ID" = "rhel" ] || [ "$OS_ID" = "centos" ]; } \
+                 && [ "${OS_MAJOR_VERSION_TMP}" -ge 10 ] 2>/dev/null; }; then
             ZLIB_PKG="zlib-ng-compat-devel"
         fi
         ESSENTIAL_RPMS=(
@@ -204,11 +208,29 @@ case "$OS_ID" in
         # Install essential and auxiliary packages in two separate transactions
         # so a single unavailable auxiliary package cannot abort the whole step
         # when SKIP_FLAG is empty (dnf refuses the entire transaction). Essential
-        # failures are still caught by the explicit verification below.
+        # failures are surfaced by the explicit verification below.
         sudo dnf install -y "${SKIP_FLAG[@]}" "${ESSENTIAL_RPMS[@]}" \
             || echo "WARNING: dnf reported errors installing essential packages; verifying below..."
         sudo dnf install -y "${SKIP_FLAG[@]}" "${AUXILIARY_RPMS[@]}" \
             || echo "WARNING: some auxiliary packages failed to install, continuing..."
+
+        # Because SKIP_FLAG (--skip-unavailable/--skip-broken) lets dnf exit 0
+        # even when a package has no install candidate, an essential header can
+        # be silently dropped (e.g. if CRB/EPEL enablement failed). Verify the
+        # essential ones explicitly and surface any miss as a WARNING so it is
+        # visible here rather than as an opaque ./configure or make error during
+        # a later Python source build. Non-fatal on purpose: minimal images
+        # (e.g. UBI) may legitimately lack a few, and the source-build path
+        # re-attempts its own dependency install.
+        MISSING_RPMS=()
+        for pkg in "${ESSENTIAL_RPMS[@]}"; do
+            rpm -q "$pkg" >/dev/null 2>&1 || MISSING_RPMS+=("$pkg")
+        done
+        if [ "${#MISSING_RPMS[@]}" -gt 0 ]; then
+            echo "WARNING: the following essential packages are not installed: ${MISSING_RPMS[*]}"
+            echo "         They are usually provided by the CRB/PowerTools or EPEL repositories;"
+            echo "         the build may fail later if any of them are genuinely required."
+        fi
 	;;
     *)
         echo "Unsupported OS: $OS_ID" && exit 1
