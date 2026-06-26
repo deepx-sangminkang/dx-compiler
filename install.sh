@@ -680,14 +680,20 @@ install_dx_com() {
         if [ "$USE_PYPI" -eq 1 ]; then
             # PyPI: download the latest dx-com (no version pin).
             pip download "${PIP_DOWNLOAD_ARGS[@]}" "dx-com" || { print_colored "Failed to download dx-com for archiving." "ERROR"; popd >&2; exit 1; }
-            ARCHIVED_COM_FILE=$(find "$ARCHIVE_DIR" -name "dx_com-*.whl" -type f | head -1)
+            # Match the Python tag: archives/ may hold stale wheels for other
+            # Python versions from prior runs, and picking the wrong tag bakes a
+            # mismatched wheel into the image (forcing an in-container Python rebuild).
+            ARCHIVED_COM_FILE=$(find "$ARCHIVE_DIR" -name "dx_com-*-${PYTHON_VERSION_TAG}-*.whl" -type f | head -1)
         else
             local COM_FIND_LINKS="https://sdk.deepx.ai/release/dxcom/v${COM_VERSION}/index.html"
             # DEEPX release index: pin the exact version from compiler.properties.
             # --no-index disables PyPI so that only the DEEPX find-links source is used.
             # Safe here because PIP_DOWNLOAD_ARGS includes --no-deps (no transitive deps to resolve).
             pip download "${PIP_DOWNLOAD_ARGS[@]}" "dx-com==${COM_VERSION}" --no-index -f "$COM_FIND_LINKS" || { print_colored "Failed to download dx-com for archiving." "ERROR"; popd >&2; exit 1; }
-            ARCHIVED_COM_FILE=$(find "$ARCHIVE_DIR" -name "dx_com-${COM_VERSION}*.whl" -type f | head -1)
+            # Pin both version and Python tag: archives/ may hold stale wheels for
+            # other Python versions from prior runs, and picking the wrong tag bakes
+            # a mismatched wheel into the image (forcing an in-container Python rebuild).
+            ARCHIVED_COM_FILE=$(find "$ARCHIVE_DIR" -name "dx_com-${COM_VERSION}-${PYTHON_VERSION_TAG}-*.whl" -type f | head -1)
         fi
         if [ -n "$ARCHIVED_COM_FILE" ] && [ -n "$ARCHIVE_OUTPUT_FILE" ]; then
             echo "ARCHIVED_COM_FILE=${ARCHIVED_COM_FILE}" >> "$ARCHIVE_OUTPUT_FILE"
