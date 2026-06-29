@@ -41,6 +41,7 @@ def colored_print(message, level="INFO"):
     sys.stdout.flush()
     sys.stderr.flush() # Ensure error messages are flushed
 
+
 def resolve_ca_bundle():
     """Resolve the CA bundle to verify TLS connections against.
 
@@ -64,6 +65,7 @@ def resolve_ca_bundle():
         if os.path.exists(path):
             return path
     return None
+
 
 def human_readable_size(size_bytes):
     """Converts a size in bytes to a human-readable format (e.g., KB, MB, GB)."""

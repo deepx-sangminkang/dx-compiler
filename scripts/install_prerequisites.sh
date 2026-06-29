@@ -231,7 +231,7 @@ case "$OS_ID" in
             echo "         They are usually provided by the CRB/PowerTools or EPEL repositories;"
             echo "         the build may fail later if any of them are genuinely required."
         fi
-	;;
+        ;;
     *)
         echo "Unsupported OS: $OS_ID" && exit 1
         ;;
