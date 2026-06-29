@@ -86,8 +86,23 @@ enable_rhel_extra_repos() {
     # Ensure dnf-plugins-core is available (provides 'config-manager').
     sudo dnf install -y dnf-plugins-core 2>/dev/null || true
 
-    # Enable CodeReady Builder (CRB).
+    # Enable CodeReady Builder (CRB / PowerTools). The repo *alias* 'crb' exists
+    # only on CentOS Stream / Rocky / Alma; UBI and subscribed RHEL name it
+    # 'ubi-<major>-codeready-builder-rpms' / 'codeready-builder-for-rhel-<major>-*'
+    # respectively, so '--set-enabled crb' is a silent no-op there. Try all the
+    # known ids; each is best-effort and must never abort the caller.
     sudo dnf config-manager --set-enabled crb 2>/dev/null || true
+    sudo dnf config-manager --set-enabled "ubi-${OS_MAJOR_VERSION}-codeready-builder-rpms" 2>/dev/null || true
+    sudo dnf config-manager --set-enabled "codeready-builder-for-rhel-${OS_MAJOR_VERSION}-x86_64-rpms" 2>/dev/null || true
+
+    # Enable EPEL (provides patchelf, ccache, and other extras). CentOS Stream
+    # ships epel-release in its own repos; UBI/RHEL must install the EPEL release
+    # RPM by URL. Best-effort: a failure here must never abort the caller.
+    if ! sudo dnf install -y epel-release 2>/dev/null; then
+        sudo dnf install -y \
+            "https://dl.fedoraproject.org/pub/epel/epel-release-latest-${OS_MAJOR_VERSION}.noarch.rpm" \
+            2>/dev/null || true
+    fi
 }
 
 check_virtualenv() {
