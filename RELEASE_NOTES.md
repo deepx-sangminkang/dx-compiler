@@ -50,6 +50,26 @@ Here are the **DX-Compiler v2.4.0** Release Notes.
 
 -   Significant FPS degradation has been observed in models using PReLU as an activation function.
 
+### Installer
+
+### 1. Changed
+
+-   **Expanded OS Support**: `install.sh` now supports the **Red Hat family** — **Fedora 42–45**, **RHEL 9–10**, and **CentOS Stream 9–10** — in addition to **Ubuntu 20.04/22.04/24.04/26.04** and **Debian 11–13**. Required repositories (CRB/PowerTools, EPEL) and build dependencies are set up automatically. Ubuntu 18.04 is no longer supported.
+-   **Expanded Python Version Support**: The installer now accepts **Python 3.8–3.14** (previously 3.8–3.12), installing a supported version via the system package manager or a source build when the OS default is unsuitable.
+-   **Simplified DX-COM Installation**: DX-COM is now installed as a published `pip` package, so a matching wheel no longer has to be selected per Python version. `compiler.properties` no longer carries per-Python download URLs.
+-   **Fully Unattended Installation**: All interactive prompts have been removed — the Python version confirmation and its 10-second timeout, plus package prompts such as the `tzdata` timezone selection. `install.sh` now runs to completion without user input, making it usable in Dockerfiles and CI pipelines.
+
+### 2. Fixed
+
+-   Fixed the installer reporting success on an unsupported OS/architecture after creating a virtual environment. It now stops early with a clear message when neither DX-COM nor DX-TRON can be installed.
+-   Fixed reinstallation failures caused by leftover files or broken symlinks from a previously interrupted install.
+-   Improved installation error reporting: a failed dependency step now fails immediately with the actual error, instead of surfacing later as an unrelated build error.
+
+### 3. Added
+
+-   **DX-TRON on the Red Hat Family (Web Only)**: On Fedora/RHEL/CentOS, the web variant is installed and can be started with `./run_dxtron_web.sh`. The `dxtron` CLI/desktop build requires FUSE and remains available on the Debian/Ubuntu family only.
+-   **Installation in Minimal Container Images**: The installer now works in images without `sudo` (e.g. minimal UBI/RHEL images, or running as `root` in CI), instead of failing with `sudo: command not found`.
+
 ### DX-TRON (v2.0.1)
 
 **Deprecated.** DX-TRON is deprecated as of DX-Compiler v2.4.0 and will be removed in a future release. Please migrate to the DX-COM standalone HTML graph viewer for model visualization. No changes in this release.
