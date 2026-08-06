@@ -20,22 +20,43 @@ uv_available() {
     command -v uv >/dev/null 2>&1
 }
 
-# Install uv into the currently active environment. Returns non-zero on
-# failure so the caller can fall back to pip instead of aborting install.
+# Where the standalone installer drops the uv binary when we cannot use pip.
+UV_BOOTSTRAP_DIR="${UV_BOOTSTRAP_DIR:-${HOME}/.local/bin}"
+
+# Make uv available. Returns non-zero on failure so the caller can fall back to
+# pip instead of aborting the install.
+#
+# uv is fetched as a standalone binary rather than with `pip install uv`,
+# because pip is not dependable at this point:
+#   - Debian/Ubuntu ship PEP 668 EXTERNALLY-MANAGED markers that reject
+#     `pip install` into the system Python, --user included, so on Ubuntu
+#     24.04/26.04 the pip route always fails. Getting past it needs
+#     --break-system-packages, which a customer-facing installer has no
+#     business doing to a distro Python.
+#   - Inside a virtualenv pip is usually present, but not always: a venv built
+#     by `uv venv` without --seed has none, and bare `pip` then silently
+#     resolves to the system pip and hits the case above.
+# The standalone binary sidesteps both and touches no Python installation.
+#
+# The URL is pinned to UV_PIN so this never fetches an unreviewed release, and
+# UV_NO_MODIFY_PATH keeps the installer out of the user's shell rc files.
 bootstrap_uv() {
     if [ "${UV_NO_BOOTSTRAP}" = "1" ]; then
         return 1
     fi
-    local pip_target_args=""
-    # Outside a venv, install to the user site so we never touch system dirs
-    # (PEP 668 blocks system-wide pip on Ubuntu 24.04+).
-    if [ -z "${VIRTUAL_ENV:-}" ]; then
-        pip_target_args="--user"
-    fi
-    pip install ${pip_target_args} "uv==${UV_PIN}" >&2 || return 1
-    # `pip install --user` lands in ~/.local/bin, which may not be on PATH.
+
+    command -v curl >/dev/null 2>&1 || {
+        echo "[WARNING] curl not found; cannot install uv." >&2
+        return 1
+    }
+    mkdir -p "${UV_BOOTSTRAP_DIR}" || return 1
+    echo "[INFO] Installing uv ${UV_PIN} to ${UV_BOOTSTRAP_DIR}..." >&2
+    curl -LsSf "https://astral.sh/uv/${UV_PIN}/install.sh" \
+        | env UV_INSTALL_DIR="${UV_BOOTSTRAP_DIR}" UV_NO_MODIFY_PATH=1 sh >&2 || return 1
+
+    # UV_BOOTSTRAP_DIR is not necessarily on the current PATH.
     if ! command -v uv >/dev/null 2>&1; then
-        PATH="${HOME}/.local/bin:${PATH}"
+        PATH="${UV_BOOTSTRAP_DIR}:${PATH}"
         export PATH
     fi
     command -v uv >/dev/null 2>&1
@@ -56,7 +77,8 @@ resolve_pip_cmd() {
 
     if ! uv_available; then
         if ! bootstrap_uv; then
-            echo "[WARNING] uv requested but unavailable and bootstrap failed; falling back to pip." >&2
+            echo "[WARNING] --uv was requested, but uv is not installed and could not be installed automatically." >&2
+            echo "[WARNING] Continuing with pip. Install uv manually and re-run to use it." >&2
             return 0
         fi
     fi
