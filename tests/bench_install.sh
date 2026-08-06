@@ -42,8 +42,16 @@ if [ -z "${UV_BIN}" ]; then
 fi
 echo "Using uv at: ${UV_BIN}"
 
+# A full sweep is ~45 min and ~15 GB of downloads. BENCH_CASES lets you rerun
+# just the cases you still need, e.g. BENCH_CASES="uv uv-locked".
+BENCH_CASES="${BENCH_CASES:-pip uv uv-locked}"
+
 run_case() {
     local label="$1"; shift
+    case " ${BENCH_CASES} " in
+        *" ${label} "*) ;;
+        *) echo "skipping ${label} (not in BENCH_CASES)"; return 0 ;;
+    esac
     local venv="${BENCH_TMPDIR}/bench-${label}-$$"
     rm -rf "${venv}"
     echo "=== ${label} ===" | tee -a "${RESULTS}/bench.log"
