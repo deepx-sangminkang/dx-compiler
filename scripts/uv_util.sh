@@ -51,8 +51,25 @@ bootstrap_uv() {
     }
     mkdir -p "${UV_BOOTSTRAP_DIR}" || return 1
     echo "[INFO] Installing uv ${UV_PIN} to ${UV_BOOTSTRAP_DIR}..." >&2
-    curl -LsSf "https://astral.sh/uv/${UV_PIN}/install.sh" \
-        | env UV_INSTALL_DIR="${UV_BOOTSTRAP_DIR}" UV_NO_MODIFY_PATH=1 sh >&2 || return 1
+
+    # Download first, run second, rather than `curl ... | sh`. This file is
+    # sourced by scripts that do not set `pipefail` (install.sh) and by one
+    # that does (lock_project.sh); in the former a failed curl is invisible
+    # because the pipeline reports sh's status, and sh happily "succeeds" on
+    # the empty or truncated input it was handed. Downloading to a file lets
+    # curl's own exit status be checked, and means a partial download is never
+    # executed.
+    local uv_installer
+    uv_installer=$(mktemp) || return 1
+    if ! curl -LsSf "https://astral.sh/uv/${UV_PIN}/install.sh" -o "${uv_installer}"; then
+        echo "[WARNING] Could not download the uv ${UV_PIN} installer." >&2
+        rm -f "${uv_installer}"
+        return 1
+    fi
+    env UV_INSTALL_DIR="${UV_BOOTSTRAP_DIR}" UV_NO_MODIFY_PATH=1 sh "${uv_installer}" >&2
+    local install_rc=$?
+    rm -f "${uv_installer}"
+    [ ${install_rc} -eq 0 ] || return 1
 
     # UV_BOOTSTRAP_DIR is not necessarily on the current PATH.
     if ! command -v uv >/dev/null 2>&1; then
