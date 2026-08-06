@@ -20,7 +20,7 @@ uv_available() {
     command -v uv >/dev/null 2>&1
 }
 
-# Where the standalone installer drops the uv binary when we cannot use pip.
+# Where the standalone installer drops the uv binary.
 UV_BOOTSTRAP_DIR="${UV_BOOTSTRAP_DIR:-${HOME}/.local/bin}"
 
 # Make uv available. Returns non-zero on failure so the caller can fall back to
