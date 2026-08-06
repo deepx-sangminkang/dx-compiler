@@ -229,6 +229,10 @@ install_python_and_venv() {
         install_py_cmd_args+=" ${VENV_SYSTEM_SITE_PACKAGES_ARGS}"
     fi
 
+    if [ ${USE_UV} -eq 1 ]; then
+        install_py_cmd_args+=" --uv"
+    fi
+
     # Pass the determined VENV_PATH and new options to install_python_and_venv.sh
     local install_py_cmd="${PROJECT_ROOT}/scripts/install_python_and_venv.sh ${install_py_cmd_args}"
     echo "CMD: ${install_py_cmd}"
