@@ -24,9 +24,13 @@ if [ -n "${VIRTUAL_ENV:-}" ]; then
     BENCH_ENV+=("PATH=${CLEAN_PATH}")
 fi
 
+# A dx-com venv is ~5.4 GB once torch and the CUDA wheels land in it. On hosts
+# where /tmp is a tmpfs that is RAM, not disk -- point TMPDIR at real storage.
+BENCH_TMPDIR="${TMPDIR:-/tmp}"
+
 run_case() {
     local label="$1"; shift
-    local venv="/tmp/bench-${label}-$$"
+    local venv="${BENCH_TMPDIR}/bench-${label}-$$"
     rm -rf "${venv}"
     echo "=== ${label} ===" | tee -a "${RESULTS}/bench.log"
     # Purge both download caches so every case starts cold. Without this the
