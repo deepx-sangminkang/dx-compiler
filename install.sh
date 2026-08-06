@@ -9,6 +9,7 @@ pushd "$PROJECT_ROOT" >&2
 #      - types: ERROR FAIL INFO WARNING DEBUG RED BLUE YELLOW GREEN
 source "${COMPILER_PATH}/scripts/color_env.sh"
 source "${COMPILER_PATH}/scripts/common_util.sh"
+source "${COMPILER_PATH}/scripts/uv_util.sh"
 
 # --- Initialize variables for credentials and options ---
 PROJECT_NAME="dx-compiler"
@@ -22,6 +23,10 @@ REUSE_VENV=0
 FORCE_REMOVE_VENV=1
 VENV_SYSTEM_SITE_PACKAGES_ARGS=""
 USE_PYPI=1
+USE_UV=0
+# Resolved by resolve_pip_cmd() after argument parsing; see scripts/uv_util.sh.
+PIP_CMD="pip"
+PIP_UNINSTALL_CMD="pip uninstall -y"
 
 # Global variables for script configuration
 PYTHON_VERSION=""
@@ -68,6 +73,7 @@ show_help() {
     echo -e ""
     echo -e "  ${COLOR_GREEN}[--verbose]${COLOR_RESET}                           Enable verbose (debug) logging."
     echo -e "  ${COLOR_GREEN}[--force=<true|false>]${COLOR_RESET}                Force reinstall modules (dx_com, dx_tron) even if already installed (default: true)"
+    echo -e "  ${COLOR_GREEN}[--uv=<true|false>]${COLOR_RESET}                   Use uv instead of pip for Python package installation (default: false)"
     echo -e "  ${COLOR_GREEN}[--help]${COLOR_RESET}                              Display this help message and exit."
     echo -e ""
     echo -e "Virtual Environment Options:"
@@ -92,6 +98,9 @@ show_help() {
     echo -e "  ${COLOR_YELLOW}$0 --venv_path=./existing_venv --venv-reuse # Reuse existing venv${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 --venv_path=./old_venv --venv-force-remove # Force remove and recreate venv${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 --venv_path=./my_venv --venv_symlink_target_path=/tmp/actual_venv # Create venv at /tmp with symlink${COLOR_RESET}"
+    echo -e ""
+    echo -e "  ${COLOR_YELLOW}$0 --uv=true # Install with uv (faster dependency resolution)${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --uv=true --pypi=false # Reproducible install pinned by uv.lock${COLOR_RESET}"
     echo -e ""
 
     if [ "$1" == "error" ] && [[ ! -n "$2" ]]; then
@@ -518,7 +527,7 @@ install_python_package() {
         print_colored "Python package '$package_name' is already installed." "INFO"
     else
         print_colored "Python package '$package_name' not found. Installing..." "INFO"
-        pip_install_cmd="pip3 install $package_name"
+        pip_install_cmd="${PIP_CMD} install $package_name"
         if ! eval "$pip_install_cmd"; then
             print_colored "ERROR: Failed to install Python package '$package_name'. Please ensure pip3 is installed and accessible, or install it manually." "ERROR"
             popd >&2
@@ -669,6 +678,10 @@ install_dx_com() {
         mkdir -p "$ARCHIVE_DIR"
         print_colored "ARCHIVE_MODE is ON. Downloading dx-com to ${ARCHIVE_DIR}..." "INFO"
 
+        # Archive mode stays on pip: uv has no `pip download` equivalent, and
+        # cross-version wheel fetching via --only-binary/--python-version is
+        # exactly what pip download exists for. Revisit if `uv pip download`
+        # ever ships.
         local PIP_DOWNLOAD_ARGS=(
             "--dest" "$ARCHIVE_DIR"
             "--no-deps"
@@ -711,8 +724,8 @@ install_dx_com() {
     # For Python 3.8, manually install onnxruntime 1.18.0 from direct URL (PyPI doesn't support it)
     if [ "${PYTHON_VERSION_TAG}" = "cp38" ]; then
         print_colored "Python 3.8 detected: Upgrading pip and installing onnxruntime 1.18.0 from direct URL..." "INFO"
-        pip install --upgrade pip || print_colored "Warning: Failed to upgrade pip. Continuing..." "WARNING"
-        if pip install https://files.pythonhosted.org/packages/1b/74/02cb1f6fcbadc094c98c49aff8571e7c576bdb4015c01507c385285b5bed/onnxruntime-1.18.0-cp38-cp38-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl; then
+        ${PIP_CMD} install --upgrade pip || print_colored "Warning: Failed to upgrade pip. Continuing..." "WARNING"
+        if ${PIP_CMD} install https://files.pythonhosted.org/packages/1b/74/02cb1f6fcbadc094c98c49aff8571e7c576bdb4015c01507c385285b5bed/onnxruntime-1.18.0-cp38-cp38-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl; then
             print_colored "onnxruntime 1.18.0 installed successfully for Python 3.8!" "INFO"
         else
             print_colored "Failed to install onnxruntime 1.18.0 for Python 3.8." "ERROR"
@@ -733,12 +746,12 @@ install_dx_com() {
     # If force mode is enabled, uninstall existing dx-com first
     if [ -n "$FORCE_ARGS" ]; then
         print_colored "Force mode: uninstalling existing dx-com before reinstall..." "INFO"
-        pip uninstall -y dx-com 2>/dev/null || true
+        ${PIP_UNINSTALL_CMD} dx-com 2>/dev/null || true
     fi
 
     if [ "$USE_PYPI" -eq 1 ]; then
         print_colored "Installing dx-com from PyPI..." "INFO"
-        if pip install "dx-com"; then
+        if ${PIP_CMD} install "dx-com"; then
             print_colored "dx-com installed successfully from PyPI!" "INFO"
         else
             print_colored "Failed to install dx-com from PyPI." "ERROR"
@@ -748,7 +761,7 @@ install_dx_com() {
     else
         local COM_FIND_LINKS="https://sdk.deepx.ai/release/dxcom/v${COM_VERSION}/index.html"
         print_colored "Installing dx-com from ${COM_FIND_LINKS}..." "INFO"
-        if pip install "dx-com==${COM_VERSION}" -f "$COM_FIND_LINKS"; then
+        if ${PIP_CMD} install "dx-com==${COM_VERSION}" -f "$COM_FIND_LINKS"; then
             print_colored "dx-com installed successfully!" "INFO"
         else
             print_colored "Failed to install dx-com." "ERROR"
@@ -1110,6 +1123,16 @@ while [[ $# -gt 0 ]]; do
                 show_help "error" "Invalid value for --pypi: '$PYPI_VALUE'. Use 'true' or 'false'."
             fi
             ;;
+        --uv=*)
+            UV_VALUE="${1#*=}"
+            if [ "$UV_VALUE" = "true" ]; then
+                USE_UV=1
+            elif [ "$UV_VALUE" = "false" ]; then
+                USE_UV=0
+            else
+                show_help "error" "Invalid value for --uv: '$UV_VALUE'. Use 'true' or 'false'."
+            fi
+            ;;
         --help)
             show_help
             ;;
@@ -1119,6 +1142,9 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+resolve_pip_cmd "$USE_UV"
+print_colored "Python package installer: ${PIP_CMD}" "INFO"
 
 main
 

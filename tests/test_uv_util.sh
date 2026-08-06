@@ -32,5 +32,27 @@ assert_eq "uv pip uninstall" "$PIP_UNINSTALL_CMD" "uv pip uninstall takes no -y"
 PATH="/usr/bin:/bin" UV_NO_BOOTSTRAP=1 resolve_pip_cmd 1
 assert_eq "pip" "$PIP_CMD" "uv absent + no bootstrap falls back to pip"
 
+# install.sh must advertise and accept --uv, and reject bad values.
+INSTALL_SH="${SCRIPT_DIR}/../install.sh"
+
+HELP_OUT=$("${INSTALL_SH}" --help 2>&1)
+case "$HELP_OUT" in
+    *"--uv="*) echo "ok: install.sh --help documents --uv" ;;
+    *) echo "FAIL: install.sh --help does not document --uv"; FAILED=1 ;;
+esac
+
+BAD_OUT=$("${INSTALL_SH}" --uv=maybe 2>&1)
+BAD_RC=$?
+if [ "$BAD_RC" -eq 0 ]; then
+    echo "FAIL: --uv=maybe should exit non-zero"
+    FAILED=1
+else
+    echo "ok: --uv=maybe rejected (exit ${BAD_RC})"
+fi
+case "$BAD_OUT" in
+    *"Invalid value for --uv"*) echo "ok: --uv=maybe error message is specific" ;;
+    *) echo "FAIL: --uv=maybe error message missing"; FAILED=1 ;;
+esac
+
 rm -rf "${_UV_FAKE_DIR}"
 [ $FAILED -eq 0 ] && echo "ALL PASS" || exit 1
