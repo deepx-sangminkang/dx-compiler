@@ -77,6 +77,36 @@ pip install dx_com-<VERSION>-cp311-cp311-manylinux_2_31_x86_64.whl
 !!! note "Wheel filename format"
     The wheel filename follows PEP 425 / PEP 600 conventions: `dx_com-<VERSION>-<PYTAG>-<ABITAG>-<PLATFORMTAG>.whl`. For DX-COM v2.4.0 on CPython 3.12, this looks like `dx_com-2.4.0-cp312-cp312-manylinux_2_31_x86_64.whl`.
 
+**Option 3: Install with uv (Fastest)**
+
+[uv](https://docs.astral.sh/uv/) resolves and installs dependencies substantially faster than pip. `install.sh` accepts `--uv=true` to route all Python package installation through uv:
+
+```bash
+./install.sh --target=dx_com --uv=true
+```
+
+To use uv directly against an existing virtual environment:
+
+```bash
+uv pip install dx-com
+```
+
+For a reproducible install pinned to the exact dependency versions DEEPX validated, combine `--uv=true` with `--pypi=false`. This resolves nothing at install time — it installs straight from the checked-in `uv.lock`:
+
+```bash
+./install.sh --target=dx_com --uv=true --pypi=false
+```
+
+`uv.lock` is a universal lock covering Python 3.8 through 3.14, regenerated per DEEPX release by `scripts/lock_project.sh`. The default `--pypi=true` path intentionally tracks the latest published `dx-com` and does not use the lock.
+
+!!! note "uv and pip coexist"
+    `install.sh` creates the virtual environment with `uv venv --seed`, so `pip` remains available inside it. `--uv=false` (the default) keeps the original pip-only path unchanged. If uv is requested but cannot be installed, the installer prints a warning and falls back to pip rather than failing.
+
+!!! warning "Archive mode still uses pip"
+    `--archive_mode=y` downloads wheels with `pip download`; uv has no equivalent command, so archive mode is unaffected by `--uv`.
+
+---
+
 **Verify the Installation**
 
 ```bash
