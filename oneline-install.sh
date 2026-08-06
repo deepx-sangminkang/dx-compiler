@@ -16,6 +16,7 @@ REPO="DEEPX-AI/dx-compiler"
 INSTALL_ROOT="${DX_INSTALL_DIR:-$HOME/deepx}"
 
 log() { printf '\033[1;34m[dx-compiler]\033[0m %s\n' "$1"; }
+warn() { printf '\033[1;33m[dx-compiler][WARN]\033[0m %s\n' "$1" >&2; }
 die() { printf '\033[1;31m[dx-compiler][ERROR]\033[0m %s\n' "$1" >&2; exit 1; }
 
 main() {
@@ -39,6 +40,8 @@ main() {
     case "$TAG" in
         ''|*..*|/*|*[!A-Za-z0-9._/-]*) die "invalid DX_VERSION: $TAG" ;;
     esac
+
+    [ -z "${DX_REF:-}" ] || warn "DX_REF is ignored by dx-compiler; installing $TAG (set DX_VERSION to pin a version)"
 
     DEST="$INSTALL_ROOT/dx-compiler-$TAG"
     log "Installing dx-compiler $TAG into $DEST"
