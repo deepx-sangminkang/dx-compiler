@@ -31,6 +31,15 @@ main() {
         [ -n "$TAG" ] || die "failed to resolve latest release tag (pin with DX_VERSION=vX.Y.Z)"
     fi
 
+    # TAG is spliced into both a GitHub URL and a local path below — validate before either
+    # use. Blocks '..' (path/URL traversal), a leading '/' (absolute path), and anything
+    # outside [A-Za-z0-9._/-] (shell/URL metacharacters). Applied to both the pinned
+    # (DX_VERSION) and API-resolved (latest release) paths — the latter is our own trusted
+    # response, but validating both is cheaper than reasoning about which path is trusted.
+    case "$TAG" in
+        ''|*..*|/*|*[!A-Za-z0-9._/-]*) die "invalid DX_VERSION: $TAG" ;;
+    esac
+
     DEST="$INSTALL_ROOT/dx-compiler-$TAG"
     log "Installing dx-compiler $TAG into $DEST"
     mkdir -p "$DEST"
