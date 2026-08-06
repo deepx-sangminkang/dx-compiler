@@ -1,0 +1,19 @@
+name: oneline-lint
+on:
+  pull_request:
+    paths: ['oneline-install.sh']
+  workflow_dispatch:
+jobs:
+  lint:
+    runs-on:
+      - self-hosted
+      - sdk
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check
+        run: sh -n oneline-install.sh
+      - name: ShellCheck
+        run: |
+          docker run --rm -v "$PWD:/mnt" -w /mnt \
+            koalaman/shellcheck:stable -s sh oneline-install.sh

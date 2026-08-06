@@ -31,6 +31,24 @@
 
 DX-Compiler provides scripts for local installation, as well as scripts for building Docker images and running containers.
 
+### One-Line Installation
+Install DX-Compiler directly, without cloning the repository:
+```bash
+curl -fsSL https://raw.githubusercontent.com/DEEPX-AI/dx-compiler/main/oneline-install.sh | sh
+```
+- `DX_VERSION=vX.Y.Z` — pin a release (default: latest release)
+- `DX_INSTALL_DIR=<dir>` — install root (default: `~/deepx`)
+- `DX_INSTALL_ARGS=<args>` — extra flags passed through to `install.sh`. `install.sh` detects
+  when it's running inside a container and requires a docker volume path in that case:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/DEEPX-AI/dx-compiler/main/oneline-install.sh \
+    | DX_INSTALL_ARGS=--docker_volume_path=/root/docker_vol sh
+  ```
+
+The virtual environment lands at `$DX_INSTALL_DIR/dx-compiler-<tag>/venv-dx-compiler` (default:
+`~/deepx/dx-compiler-<tag>/venv-dx-compiler`). For the full repository clone instead, see Local
+Installation and Docker Installation below.
+
 ### Local Installation
 For detailed instructions on setting up a local environment for DX-Compiler, please refer to this [LINK](https://github.com/DEEPX-AI/dx-all-suite/blob/main/docs/source/02_Setting_Up_Environment.md).
 

@@ -5,8 +5,11 @@
 #   curl -fsSL https://raw.githubusercontent.com/DEEPX-AI/dx-compiler/main/oneline-install.sh | sh
 #
 # Env overrides:
-#   DX_VERSION=vX.Y.Z     pin a release (default: latest release)
-#   DX_INSTALL_DIR=<dir>  install root (default: ~/deepx)
+#   DX_VERSION=vX.Y.Z       pin a release (default: latest release)
+#   DX_INSTALL_DIR=<dir>    install root (default: ~/deepx)
+#   DX_INSTALL_ARGS=<args>  extra flags passed through to install.sh
+#                           (e.g. running inside a container: install.sh detects
+#                           it and requires DX_INSTALL_ARGS=--docker_volume_path=<dir>)
 set -eu
 
 REPO="DEEPX-AI/dx-compiler"
@@ -36,7 +39,9 @@ main() {
         || die "failed to download/extract release tarball"
 
     cd "$DEST"
-    bash ./install.sh || die "install.sh failed — see output above"
+    # ponytail: unquoted on purpose — DX_INSTALL_ARGS carries operator-supplied flags that must word-split
+    # shellcheck disable=SC2086
+    bash ./install.sh ${DX_INSTALL_ARGS:-} || die "install.sh failed — see output above"
 
     log "Done. dx-compiler $TAG installed at $DEST"
 }
