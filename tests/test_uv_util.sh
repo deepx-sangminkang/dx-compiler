@@ -71,6 +71,22 @@ if [ -f "${PROJECT_ROOT}/uv.lock" ]; then
         echo "FAIL: uv.lock is stale for COM_VERSION=${COM_VERSION}; run scripts/lock_project.sh"
         FAILED=1
     fi
+    # install_dx_com() decides whether to trust uv.lock by grepping it for this
+    # exact version-bearing URL. If uv ever changes how it records the registry,
+    # that guard would silently go always-false and the lock path would quietly
+    # stop being used, so pin the assumption here.
+    if grep -q "dxcom/v${COM_VERSION}/index.html" "${PROJECT_ROOT}/uv.lock"; then
+        echo "ok: uv.lock carries the registry URL install.sh's staleness guard greps for"
+    else
+        echo "FAIL: uv.lock has no 'dxcom/v${COM_VERSION}/index.html'; install.sh would never use the lock"
+        FAILED=1
+    fi
+    if grep -q "dxcom/v0.0.0-nonexistent/index.html" "${PROJECT_ROOT}/uv.lock"; then
+        echo "FAIL: staleness guard matches a version that is not in the lock"
+        FAILED=1
+    else
+        echo "ok: staleness guard rejects a COM_VERSION the lock was not built for"
+    fi
 else
     echo "ok: uv.lock absent, lock consistency check skipped"
 fi
