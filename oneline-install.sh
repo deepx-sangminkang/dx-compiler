@@ -39,7 +39,10 @@ main() {
         || die "failed to download/extract release tarball"
 
     cd "$DEST"
-    # ponytail: unquoted on purpose — DX_INSTALL_ARGS carries operator-supplied flags that must word-split
+    # ponytail: unquoted on purpose — DX_INSTALL_ARGS carries operator-supplied flags that must
+    # word-split; set -f keeps that word-splitting but excludes pathname (glob) expansion, so a
+    # stray */? in a flag value reaches install.sh literally instead of expanding against $DEST.
+    set -f
     # shellcheck disable=SC2086
     bash ./install.sh ${DX_INSTALL_ARGS:-} || die "install.sh failed — see output above"
 
