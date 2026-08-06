@@ -54,5 +54,26 @@ case "$BAD_OUT" in
     *) echo "FAIL: --uv=maybe error message missing"; FAILED=1 ;;
 esac
 
+# uv.lock must stay in sync with COM_VERSION in compiler.properties.
+PROJECT_ROOT="${SCRIPT_DIR}/.."
+if [ -f "${PROJECT_ROOT}/uv.lock" ]; then
+    # shellcheck disable=SC1091
+    . "${PROJECT_ROOT}/compiler.properties"
+    if grep -q "dx-com==${COM_VERSION}" "${PROJECT_ROOT}/pyproject.toml"; then
+        echo "ok: pyproject.toml pins dx-com==${COM_VERSION}"
+    else
+        echo "FAIL: pyproject.toml does not pin dx-com==${COM_VERSION}; run scripts/lock_project.sh"
+        FAILED=1
+    fi
+    if grep -q "version = \"${COM_VERSION}\"" "${PROJECT_ROOT}/uv.lock"; then
+        echo "ok: uv.lock contains dx-com ${COM_VERSION}"
+    else
+        echo "FAIL: uv.lock is stale for COM_VERSION=${COM_VERSION}; run scripts/lock_project.sh"
+        FAILED=1
+    fi
+else
+    echo "ok: uv.lock absent, lock consistency check skipped"
+fi
+
 rm -rf "${_UV_FAKE_DIR}"
 [ $FAILED -eq 0 ] && echo "ALL PASS" || exit 1

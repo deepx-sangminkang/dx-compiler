@@ -764,13 +764,30 @@ install_dx_com() {
         fi
     else
         local COM_FIND_LINKS="https://sdk.deepx.ai/release/dxcom/v${COM_VERSION}/index.html"
-        print_colored "Installing dx-com from ${COM_FIND_LINKS}..." "INFO"
-        if ${PIP_CMD} install "dx-com==${COM_VERSION}" -f "$COM_FIND_LINKS"; then
-            print_colored "dx-com installed successfully!" "INFO"
+        if [ "$USE_UV" -eq 1 ] && uv_available && [ -f "${PROJECT_ROOT}/uv.lock" ]; then
+            # Locked path. --inexact matters for --venv-reuse: a plain
+            # `uv sync` makes the environment exactly match uv.lock and
+            # uninstalls everything else in it, which would silently wipe
+            # packages a user already had in a reused venv. (uv exempts the
+            # seed packages, so pip itself survives either way.)
+            print_colored "Installing dx-com from uv.lock (pinned, reproducible)..." "INFO"
+            if UV_PROJECT_ENVIRONMENT="${VENV_PATH}" uv sync --inexact \
+                    --project "${PROJECT_ROOT}" --python "${VENV_PATH}/bin/python"; then
+                print_colored "dx-com installed successfully from uv.lock!" "INFO"
+            else
+                print_colored "Failed to install dx-com from uv.lock." "ERROR"
+                popd >&2
+                exit 1
+            fi
         else
-            print_colored "Failed to install dx-com." "ERROR"
-            popd >&2
-            exit 1
+            print_colored "Installing dx-com from ${COM_FIND_LINKS}..." "INFO"
+            if ${PIP_CMD} install "dx-com==${COM_VERSION}" -f "$COM_FIND_LINKS"; then
+                print_colored "dx-com installed successfully!" "INFO"
+            else
+                print_colored "Failed to install dx-com." "ERROR"
+                popd >&2
+                exit 1
+            fi
         fi
     fi
 
