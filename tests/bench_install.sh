@@ -28,6 +28,20 @@ fi
 # where /tmp is a tmpfs that is RAM, not disk -- point TMPDIR at real storage.
 BENCH_TMPDIR="${TMPDIR:-/tmp}"
 
+# The uv cache has to be purgeable for the comparison to mean anything, so
+# resolve the binary up front instead of hoping it is on PATH at purge time.
+UV_BIN="$(command -v uv || true)"
+if [ -z "${UV_BIN}" ] && [ -x "${UV_BOOTSTRAP_DIR:-${HOME}/.local/bin}/uv" ]; then
+    UV_BIN="${UV_BOOTSTRAP_DIR:-${HOME}/.local/bin}/uv"
+fi
+if [ -z "${UV_BIN}" ]; then
+    echo "ERROR: uv not found. The uv cases would run against a cache this script" >&2
+    echo "       cannot clear, making them look far faster than they are." >&2
+    echo "       Install uv, or set UV_BOOTSTRAP_DIR to where it lives." >&2
+    exit 1
+fi
+echo "Using uv at: ${UV_BIN}"
+
 run_case() {
     local label="$1"; shift
     local venv="${BENCH_TMPDIR}/bench-${label}-$$"
@@ -36,8 +50,10 @@ run_case() {
     # Purge both download caches so every case starts cold. Without this the
     # case that runs second wins on a warm cache, and the numbers say nothing
     # about the Docker/CI cold-build case this work exists to speed up.
-    pip cache purge >/dev/null 2>&1 || true
-    uv cache clean  >/dev/null 2>&1 || true
+    # A purge that fails has to be loud: silently skipping the uv cache while
+    # clearing pip's makes uv look ~20x faster than it is.
+    pip cache purge >/dev/null 2>&1 || echo "WARNING: pip cache purge failed; ${label} ran warm"
+    "${UV_BIN}" cache clean >/dev/null 2>&1 || echo "WARNING: uv cache clean failed; ${label} ran warm"
     local start end
     start=$(date +%s)
     (cd "${PROJECT_ROOT}" && "${BENCH_ENV[@]}" ./install.sh --target=dx_com \
