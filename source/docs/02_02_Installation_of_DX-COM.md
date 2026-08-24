@@ -91,14 +91,6 @@ To use uv directly against an existing virtual environment:
 uv pip install dx-com
 ```
 
-For a reproducible install pinned to the exact dependency versions DEEPX validated, combine `--uv=true` with `--pypi=false`. This resolves nothing at install time — it installs straight from the checked-in `uv.lock`:
-
-```bash
-./install.sh --target=dx_com --uv=true --pypi=false
-```
-
-`uv.lock` is a universal lock covering Python 3.8 through 3.14, regenerated per DEEPX release by `scripts/lock_project.sh`. The default `--pypi=true` path intentionally tracks the latest published `dx-com` and does not use the lock.
-
 !!! note "uv and pip coexist"
     `install.sh` creates the virtual environment with `uv venv --seed`, so `pip` remains available inside it. `--uv=false` (the default) keeps the original pip-only path unchanged. If uv is requested but cannot be installed, the installer prints a warning and falls back to pip rather than failing.
 

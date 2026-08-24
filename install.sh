@@ -100,7 +100,6 @@ show_help() {
     echo -e "  ${COLOR_YELLOW}$0 --venv_path=./my_venv --venv_symlink_target_path=/tmp/actual_venv # Create venv at /tmp with symlink${COLOR_RESET}"
     echo -e ""
     echo -e "  ${COLOR_YELLOW}$0 --uv=true # Install with uv (faster dependency resolution)${COLOR_RESET}"
-    echo -e "  ${COLOR_YELLOW}$0 --uv=true --pypi=false # Reproducible install pinned by uv.lock${COLOR_RESET}"
     echo -e ""
 
     if [ "$1" == "error" ] && [[ ! -n "$2" ]]; then

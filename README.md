@@ -42,12 +42,6 @@ Pass `--uv=true` to `install.sh` to install Python packages with [uv](https://do
 ./install.sh --uv=true
 ```
 
-Add `--pypi=false` for a reproducible install pinned by the checked-in `uv.lock`:
-
-```bash
-./install.sh --uv=true --pypi=false
-```
-
 See [Installation of DX-COM](source/docs/02_02_Installation_of_DX-COM.md) for details.
 
 ### Docker Installation
