@@ -1,4 +1,30 @@
 
+## v2.5.0 (2026-08-25)
+
+DX-Compiler Version
+
+-   DX-COM: v2.5.0
+-   DX-TRON: Removed
+
+DX-TRON was deprecated in v2.4.0 and is removed in this release. Use the DX-COM Compilation Summary Report (`--export_html`) for model inspection and visualization.
+
+#### Changed
+
+-   Removed DX-TRON support: `--target=dx_tron` is no longer accepted by `install.sh` or `uninstall.sh`, and the `run_dxtron_web.sh` / `run_dxtron_appimage.sh` launcher scripts were deleted. Valid targets are now `dx_com` and `all`.
+-   `compiler.properties` keeps only `COM_VERSION`; the DX-TRON version and download URL properties were removed.
+-   Removing an installed `dxtron` DEB package is now manual: `sudo apt-get remove dxtron`.
+-   Removed the *Model Viewer — DX-TRON* page from this manual and renumbered *Compilation Summary Report* to `04_Compilation_Summary_Report.md`.
+
+#### Fixed
+
+-   `uninstall.sh` cleans up a leftover `dx_tron/` directory or symlink from an earlier release, so upgrading does not orphan it.
+
+#### Added
+
+-   Passing `--target=dx_tron` now exits with a specific explanation instead of a generic "invalid target" error, pointing at `--target=dx_com` and the `--export_html` summary report.
+
+---
+
 ## v2.4.1 (2026-07-27)
 
 DX-Compiler Version

@@ -120,7 +120,7 @@
 ## Key Facts
 
 - **Compiler**: DX-COM v2.2.1 — compiles ONNX to .dxnn for DEEPX NPU
-- **Inspector**: DX-TRON v2.0.1 — visual .dxnn inspection (AppImage / web)
+- **Inspector**: Compilation Summary Report — `dxcom --export_html` writes a self-contained `<model>_summary.html`
 - **Batch size**: Must be 1. Dynamic shapes not supported.
 - **ONNX opset**: 11-21 supported
 - **OS**: Debian Linux (Ubuntu 20.04 / 22.04 / 24.04), x86_64

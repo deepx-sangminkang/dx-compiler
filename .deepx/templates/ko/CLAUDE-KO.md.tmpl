@@ -68,7 +68,7 @@ FP16/FP32 출력 옵션이 없습니다. 사용자에게 출력 정밀도를 선
 
 **Gate 1 — 브레인스토밍**: 입력 확인 (모델 경로, 형식, 타겟 디바이스, 교정 데이터).
 **Gate 2 — 빌드**: 선택된 파라미터로 컴파일 실행.
-**Gate 3 — 검증**: DX-TRON으로 출력 검증, compiler.log 검토.
+**Gate 3 — 검증**: HTML summary report(`--export_html`)로 출력 검증, compiler.log 검토.
 
 ## 빠른 참조
 
@@ -127,7 +127,7 @@ cd dx-compiler
 4. **입력 이름 일치**: config.json의 `inputs` 키는 ONNX 입력 이름과 정확히 일치해야 함
 5. **대표적 교정**: 교정 이미지는 추론 분포와 일치해야 함
 6. **PPU 타입 중요**: Type 0 = anchor-based (YOLOv3-v7), Type 1 = anchor-free (YOLOX, YOLOv8-v12). YOLO26은 PPU를 지원하지 않음.
-7. **항상 검증**: 모든 컴파일 후 DX-TRON 검사 실행
+7. **항상 검증**: 모든 컴파일 시 `--export_html`를 사용하고 생성된 `<model>_summary.html` 검토
 8. **하드코딩된 경로 금지**: 모든 경로에 파라미터 또는 환경 변수 사용
 9. **자동 simplification 금지**: 사용자가 명시적으로 요청하지 않는 한 `onnx-simplifier`를 실행하지 마세요 — 수치 정밀도 손실, 노드 이름 변경으로 인한 config.json 깨짐, 잠재적 모델 손상 위험
 10. **Ultralytics YOLO export**: `Detect.export=True`를 설정하거나 `model.export(format="onnx")`를 사용해야 함 — 표준 `torch.onnx.export()`는 1개가 아닌 6개의 출력을 생성. export 후 ONNX에 정확히 1개의 출력 노드가 있는지 항상 확인.

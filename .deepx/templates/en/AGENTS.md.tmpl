@@ -68,7 +68,7 @@ questions if the user explicitly says "just compile it" or "use defaults".
 
 **Gate 1 — Brainstorm**: Confirm inputs (model path, format, target device, calibration data).
 **Gate 2 — Build**: Execute compilation with chosen parameters.
-**Gate 3 — Verify**: Validate output with DX-TRON, review compiler.log.
+**Gate 3 — Verify**: Validate output via the HTML summary report (`--export_html`), review compiler.log.
 
 ## Quick Reference
 
@@ -112,7 +112,7 @@ dx_com.compile(model="model.onnx", output_dir="output/", config="config.json")
 4. **Input name match**: config.json `inputs` key must exactly match ONNX input name
 5. **Representative calibration**: Calibration images must match inference distribution
 6. **PPU type matters**: Type 0 = anchor-based (YOLOv3-v7), Type 1 = anchor-free (YOLOX, YOLOv8-v12). YOLO26 does not support PPU.
-7. **Always validate**: Run DX-TRON inspection after every compilation
+7. **Always validate**: Compile with `--export_html` and review the generated `<model>_summary.html` after every compilation
 8. **No hardcoded paths**: Use relative paths for calibration data (`./calibration_dataset`)
 9. **Output isolation**: All artifacts go to `dx-agent-dev/<session_id>/`.
    **Session ID format**: `YYYYMMDD-HHMMSS_<agent>_<coding_model>_<target_model>_<task>` — the timestamp MUST use the

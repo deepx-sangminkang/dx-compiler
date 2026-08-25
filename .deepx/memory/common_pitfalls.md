@@ -835,10 +835,6 @@ COM_CP310_DOWNLOAD_URL=https://developer.deepx.ai/download/?id=...
 COM_CP311_DOWNLOAD_URL=https://developer.deepx.ai/download/?id=...
 COM_CP312_DOWNLOAD_URL=https://developer.deepx.ai/download/?id=...
 
-# DX-TRON visual inspector version and download URL
-TRON_VERSION=2.0.1
-TRON_DOWNLOAD_URL=https://developer.deepx.ai/download/?id=...
-
 # Optional: auto-login credentials for DEEPX developer portal
 # If set, install.sh uses these instead of prompting for credentials.
 DX_USERNAME=<email>
@@ -848,7 +844,6 @@ DX_PASSWORD=<password>
 **Required properties** (validated by `install.sh` `validate_environment()`):
 - `COM_VERSION` — must be set
 - `COM_CP{38,39,310,311,312}_DOWNLOAD_URL` — Python-version-specific wheel URLs
-- `TRON_VERSION` and `TRON_DOWNLOAD_URL` — DX-TRON download info
 
 **Why agents must NEVER modify it**:
 1. **Contains credentials**: `DX_USERNAME` and `DX_PASSWORD` are plaintext login

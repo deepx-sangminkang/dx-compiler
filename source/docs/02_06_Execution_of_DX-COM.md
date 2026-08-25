@@ -135,7 +135,7 @@ These options are vital for troubleshooting, logging, and targeting specific sec
 | **Option** | **Shorthand** | **Description** |
 | :--- | :--- | :--- |
 | `--gen_log` | N/A | When enabled, the compiler collects all compilation logs into a `compiler.log` file in the specified output directory. Useful for debugging or analyzing the compilation process |
-| `--export_html` | N/A | Generate a self-contained HTML summary report (`<model_name>_summary.html`) in the output directory after compilation. See [Compilation Summary Report](04_02_Compilation_Summary_Report.md) |
+| `--export_html` | N/A | Generate a self-contained HTML summary report (`<model_name>_summary.html`) in the output directory after compilation. See [Compilation Summary Report](04_Compilation_Summary_Report.md) |
 | `--version` | `-v` | Prints the compiler module version and exits |
 
 **Partial Compilation (`--compile_input_nodes`, `--compile_output_nodes`)**  
@@ -607,7 +607,7 @@ See the **Use Case 8: PPU Hardware Acceleration** section in [Common Use Cases](
 
 - **Type**: `bool`
 - **Default**: `False`
-- **Description**: Generate a self-contained HTML summary report (`<model_name>_summary.html`) in the output directory after compilation. See [Compilation Summary Report](04_02_Compilation_Summary_Report.md) for details.
+- **Description**: Generate a self-contained HTML summary report (`<model_name>_summary.html`) in the output directory after compilation. See [Compilation Summary Report](04_Compilation_Summary_Report.md) for details.
 
 **`use_q_pro`**
 

@@ -1,5 +1,47 @@
 # RELEASE_NOTES
 
+## DX-Compiler v2.5.0 / 2026-08-25
+
+-   DX-COM: v2.5.0
+-   DX-TRON: Removed
+
+----------
+
+> **⚠️ Removal Notice — DX-TRON**
+>
+> DX-TRON was deprecated in DX-Compiler **v2.4.0** and is **removed as of v2.5.0**. The `dx_tron` install target, the `dxtron` CLI/desktop AppImage, the web-server variant, and the `run_dxtron_web.sh` / `run_dxtron_appimage.sh` launcher scripts no longer ship with this package. Use the DX-COM **Compilation Summary Report** (`--export_html`) for model inspection and visualization.
+
+Here are the **DX-Compiler v2.5.0** Release Notes.
+
+### Installer
+
+### 1. Changed
+
+-   **DX-TRON Support Removed**: `--target=dx_tron` is no longer accepted by `install.sh` or `uninstall.sh`. Valid targets are now `dx_com` and `all`.
+-   **DX-TRON Launcher Scripts Removed**: `run_dxtron_web.sh` and `run_dxtron_appimage.sh` were deleted.
+-   **`compiler.properties` Simplified**: `TRON_VERSION` and `TRON_DOWNLOAD_URL` were removed, leaving only `COM_VERSION`. `install.sh` no longer reads or validates the DX-TRON properties.
+-   **DX-TRON DEB Removal Is Now Manual**: `uninstall.sh` no longer runs `apt-get remove dxtron`. If the `dxtron` DEB package is still installed on a Debian/Ubuntu host, remove it with `sudo apt-get remove dxtron`.
+-   **`--target=all` and `--target=dx_com` Converged in `uninstall.sh`**: with DX-TRON gone the two targets perform the same work. In `install.sh` they remain distinct — `all` skips the OS/architecture check in archive mode and probes silently, while `dx_com` checks strictly.
+-   **Dead Installer Internals Removed**: `scripts/install_module.sh` and `scripts/downloader.py` were deleted. They implemented the tarball download / extract / symlink flow used only by the DX-TRON installer; DX-COM has always installed via `pip`.
+
+### 2. Fixed
+
+-   **Leftover `dx_tron/` Cleanup**: `uninstall.sh` removes a leftover `dx_tron/` directory or symlink from an earlier release whenever it uninstalls (`--target=dx_com` or the default `all`), so upgrading does not orphan it.
+
+### 3. Added
+
+-   **Explicit Message for the Removed Target**: passing `--target=dx_tron` now exits non-zero with a specific explanation instead of the generic "invalid target" error — `install.sh` points at `--target=dx_com` and the `--export_html` summary report, and `uninstall.sh` points at `sudo apt-get remove dxtron`. Existing scripts and CI jobs fail with the reason rather than a misleading message.
+
+### Documentation
+
+### 1. Changed
+
+-   **Model Viewer Page Removed**: The *Model Viewer — DX-TRON* user manual page, its navigation entry and its four screenshots were removed. The page documented an install target, launcher scripts, and a binary that no longer ship, instructing readers to run commands that now fail. Use the *Compilation Summary Report* page instead.
+-   **Compilation Summary Report Renumbered**: `04_02_Compilation_Summary_Report.md` became `04_Compilation_Summary_Report.md`, now that *Development Tools* holds a single document. All references were repointed.
+-   **Validation Guidance Updated**: The agent-driven development knowledge base (`.deepx/`) and all generated platform instruction files now direct validation to `dxcom --export_html` and the resulting `<model_name>_summary.html` instead of DX-TRON inspection.
+
+----------
+
 ## DX-Compiler v2.4.1 / 2026-07-27
 
 -   DX-COM: v2.4.0

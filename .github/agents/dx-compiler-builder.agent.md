@@ -393,7 +393,7 @@ Before routing, present the execution plan:
 - Generate config.json with EMA calibration
 - Calibrate with 100 samples from /data/coco/val2017/
 - Compile with opt_level=1
-- Validate output with DX-TRON
+- Validate output via the HTML summary report (`--export_html`)
 
 Proceed? [Y/n]
 ```
@@ -440,7 +440,7 @@ For full pipeline, route sequentially:
 | Component | Version | Purpose |
 |---|---|---|
 | DX-COM | v2.2.1 | ONNX → DXNN compiler |
-| DX-TRON | v2.0.1 | .dxnn visual inspection |
+| Summary report (`--export_html`) | built into DX-COM | .dxnn visual inspection |
 | ONNX | opset 11-21 | Intermediate representation |
 | Python | 3.8-3.12 | Runtime environment |
 

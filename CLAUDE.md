@@ -156,7 +156,7 @@ Do NOT ask "which precision?" or offer INT8/FP16/FP32 as choices.
 
 **Gate 1 — Brainstorm**: Confirm inputs (model path, format, target device, calibration data).
 **Gate 2 — Build**: Execute compilation with chosen parameters.
-**Gate 3 — Verify**: Validate output with DX-TRON, review compiler.log.
+**Gate 3 — Verify**: Validate output via the HTML summary report (`--export_html`), review compiler.log.
 
 ## Quick Reference
 
@@ -215,7 +215,7 @@ config.json for new models — read a sample JSON of a similar model type.
 4. **Input name match**: config.json `inputs` key must exactly match ONNX input name
 5. **Representative calibration**: Calibration images must match inference distribution
 6. **PPU type matters**: Type 0 = anchor-based (YOLOv3-v7), Type 1 = anchor-free (YOLOX, YOLOv8-v12). YOLO26 does not support PPU.
-7. **Always validate**: Run DX-TRON inspection after every compilation
+7. **Always validate**: Compile with `--export_html` and review the generated `<model>_summary.html` after every compilation
 8. **No hardcoded paths**: Use parameters or environment variables for all paths
 9. **No auto-simplification**: Do NOT run `onnx-simplifier` unless the user explicitly requests it — risks include numerical precision loss, node name changes breaking config.json, and potential model breakage
 10. **Ultralytics YOLO export**: Must set `Detect.export=True` or use `model.export(format="onnx")` — standard `torch.onnx.export()` produces 6 outputs instead of 1. Always verify ONNX has exactly 1 output node after export.

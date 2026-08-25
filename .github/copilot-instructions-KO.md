@@ -160,7 +160,7 @@ python -c "from ultralytics import YOLO; YOLO('yolo11n.pt')"
 
 **게이트 1 — 브레인스토밍**: 입력 확인 (모델 경로, 형식, 타겟 디바이스, 교정 데이터).
 **게이트 2 — 빌드**: 선택한 매개변수로 컴파일 실행.
-**게이트 3 — 검증**: DX-TRON으로 출력 검증, compiler.log 검토.
+**게이트 3 — 검증**: HTML summary report(`--export_html`)로 출력 검증, compiler.log 검토.
 
 ## 빠른 참조
 
@@ -271,7 +271,7 @@ config.json에서는 항상 상대 경로 (`./calibration_dataset`)를 사용하
 4. **입력 이름 일치**: config.json의 `inputs` 키는 ONNX 입력 이름과 정확히 일치해야 합니다
 5. **대표적인 교정**: 교정 이미지는 추론 분포와 일치해야 합니다
 6. **PPU 유형이 중요**: Type 0 = anchor 기반 (YOLOv3-v7), Type 1 = anchor-free (YOLOX, YOLOv8-v12). YOLO26은 PPU를 지원하지 않습니다.
-7. **항상 검증**: 모든 컴파일 후 DX-TRON 검사를 실행하세요
+7. **항상 검증**: 모든 컴파일 시 `--export_html`를 사용하고 생성된 `<model>_summary.html`을 검토하세요
 8. **하드코딩된 경로 금지**: 모든 경로에 매개변수 또는 환경 변수를 사용하세요
 9. **자동 단순화 금지**: 사용자가 명시적으로 요청하지 않는 한 `onnx-simplifier`를 실행하지 마세요 — 수치 정밀도 손실, 노드 이름 변경으로 인한 config.json 손상, 잠재적 모델 손상의 위험이 있습니다
 10. **Ultralytics YOLO 내보내기**: `Detect.export=True`를 설정하거나 `model.export(format="onnx")`를 사용해야 합니다 — 표준 `torch.onnx.export()`는 1개 대신 6개의 출력을 생성합니다. 내보내기 후 항상 ONNX가 정확히 1개의 출력 노드를 갖는지 확인하세요.
