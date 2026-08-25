@@ -52,13 +52,11 @@ bootstrap_uv() {
     mkdir -p "${UV_BOOTSTRAP_DIR}" || return 1
     echo "[INFO] Installing uv ${UV_PIN} to ${UV_BOOTSTRAP_DIR}..." >&2
 
-    # Download first, run second, rather than `curl ... | sh`. This file is
-    # sourced by scripts that do not set `pipefail` (install.sh) and by one
-    # that does (lock_project.sh); in the former a failed curl is invisible
-    # because the pipeline reports sh's status, and sh happily "succeeds" on
-    # the empty or truncated input it was handed. Downloading to a file lets
-    # curl's own exit status be checked, and means a partial download is never
-    # executed.
+    # Download first, run second, rather than `curl ... | sh`. install.sh does
+    # not set `pipefail`, so a failed curl would be invisible there: the
+    # pipeline reports sh's status, and sh happily "succeeds" on the empty or
+    # truncated input it was handed. Downloading to a file lets curl's own exit
+    # status be checked, and means a partial download is never executed.
     local uv_installer
     uv_installer=$(mktemp) || return 1
     if ! curl -LsSf "https://astral.sh/uv/${UV_PIN}/install.sh" -o "${uv_installer}"; then

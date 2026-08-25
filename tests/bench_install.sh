@@ -43,8 +43,8 @@ fi
 echo "Using uv at: ${UV_BIN}"
 
 # A full sweep is ~45 min and ~15 GB of downloads. BENCH_CASES lets you rerun
-# just the cases you still need, e.g. BENCH_CASES="uv uv-locked".
-BENCH_CASES="${BENCH_CASES:-pip uv uv-locked}"
+# just the cases you still need, e.g. BENCH_CASES="uv".
+BENCH_CASES="${BENCH_CASES:-pip uv}"
 
 run_case() {
     local label="$1"; shift
@@ -84,11 +84,9 @@ echo "Pre-warming sample data so no single case pays for it..."
 "${PROJECT_ROOT}/example/2-download_sample_calibration_dataset.sh" >>"${RESULTS}/prewarm.log" 2>&1 || true
 
 echo "case,python,seconds,exit_code" > "${RESULTS}/bench.csv"
-# Baseline and uv path both on the PyPI index, so the only variable is pip vs uv.
-run_case "pip"       --uv=false --pypi=true
-run_case "uv"        --uv=true  --pypi=true
-# Locked path: uv.lock, no resolution at install time. Expected fastest.
-run_case "uv-locked" --uv=true  --pypi=false
+# Same index for both, so the only variable is pip vs uv.
+run_case "pip" --uv=false
+run_case "uv"  --uv=true
 
 echo ""
 echo "Results: ${RESULTS}/bench.csv"

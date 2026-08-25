@@ -763,45 +763,13 @@ install_dx_com() {
         fi
     else
         local COM_FIND_LINKS="https://sdk.deepx.ai/release/dxcom/v${COM_VERSION}/index.html"
-
-        # Only trust uv.lock if it was regenerated for the COM_VERSION we are
-        # asked to install. A lock left behind from an earlier release would
-        # otherwise install that older dx-com without a word, which is worse
-        # than not having a lock at all. scripts/lock_project.sh refreshes it.
-        local USE_UV_LOCK=0
-        if [ "$USE_UV" -eq 1 ] && uv_available && [ -f "${PROJECT_ROOT}/uv.lock" ]; then
-            if grep -q "dxcom/v${COM_VERSION}/index.html" "${PROJECT_ROOT}/uv.lock"; then
-                USE_UV_LOCK=1
-            else
-                print_colored_v2 "WARNING" "uv.lock does not match COM_VERSION ${COM_VERSION}; ignoring it and installing from ${COM_FIND_LINKS}."
-                print_colored_v2 "HINT" "Run './scripts/lock_project.sh' to regenerate uv.lock for ${COM_VERSION}."
-            fi
-        fi
-
-        if [ ${USE_UV_LOCK} -eq 1 ]; then
-            # Locked path. --inexact matters for --venv-reuse: a plain
-            # `uv sync` makes the environment exactly match uv.lock and
-            # uninstalls everything else in it, which would silently wipe
-            # packages a user already had in a reused venv. (uv exempts the
-            # seed packages, so pip itself survives either way.)
-            print_colored "Installing dx-com from uv.lock (pinned, reproducible)..." "INFO"
-            if UV_PROJECT_ENVIRONMENT="${VENV_PATH}" uv sync --inexact \
-                    --project "${PROJECT_ROOT}" --python "${VENV_PATH}/bin/python"; then
-                print_colored "dx-com installed successfully from uv.lock!" "INFO"
-            else
-                print_colored "Failed to install dx-com from uv.lock." "ERROR"
-                popd >&2
-                exit 1
-            fi
+        print_colored "Installing dx-com from ${COM_FIND_LINKS}..." "INFO"
+        if ${PIP_CMD} install "dx-com==${COM_VERSION}" -f "$COM_FIND_LINKS"; then
+            print_colored "dx-com installed successfully!" "INFO"
         else
-            print_colored "Installing dx-com from ${COM_FIND_LINKS}..." "INFO"
-            if ${PIP_CMD} install "dx-com==${COM_VERSION}" -f "$COM_FIND_LINKS"; then
-                print_colored "dx-com installed successfully!" "INFO"
-            else
-                print_colored "Failed to install dx-com." "ERROR"
-                popd >&2
-                exit 1
-            fi
+            print_colored "Failed to install dx-com." "ERROR"
+            popd >&2
+            exit 1
         fi
     fi
 
