@@ -96,8 +96,9 @@ REPORT=$(ls output/*_summary.html 2>/dev/null | head -1)
 grep -iE "npu|cpu|partition" output/compiler.log 2>/dev/null | head -10
 ```
 
-**Gate**: `*_summary.html` exists and is non-empty. Partition lines present in
-compiler.log and shapes match expectations.
+**Gate**: `*_summary.html` exists and is non-empty, and shapes match
+expectations. Review whatever partition lines the grep returns — a model that
+runs entirely on the NPU may produce none, which is not a failure.
 
 ### Check 6: session.json
 

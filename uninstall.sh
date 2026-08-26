@@ -74,6 +74,16 @@ uninstall_dx_com_files() {
     delete_module_entry "${PROJECT_ROOT}/dx_com"
 }
 
+# DX-TRON support was removed and this script no longer runs `apt-get remove
+# dxtron`. Only warn when the package is actually still installed, so users who
+# never had DX-TRON see nothing.
+warn_leftover_dxtron_package() {
+    command -v dpkg >/dev/null 2>&1 || return 0
+    dpkg -l dxtron 2>/dev/null | grep -q "^ii" || return 0
+    print_colored_v2 "WARNING" "The 'dxtron' package is still installed. DX-TRON support has been removed from dx-compiler."
+    print_colored_v2 "HINT" "  Remove it with: sudo apt-get remove dxtron"
+}
+
 uninstall_dx_com() {
     print_colored_v2 "INFO" "Uninstalling dx_com Python package..."
 
@@ -103,6 +113,7 @@ main() {
             uninstall_dx_com
             uninstall_dx_com_files
             uninstall_common_files
+            warn_leftover_dxtron_package
             ;;
         dx_tron)
             show_help "error" "DX-TRON support has been removed from dx-compiler. If the dxtron DEB package is still installed, remove it with: sudo apt-get remove dxtron"

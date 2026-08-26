@@ -817,6 +817,11 @@ main() {
 
             # If dx_com is not supported, abort before installing Python/venv so we
             # don't leave that as a side effect and falsely report success.
+            #
+            # Intentional behaviour change: 'all' used to fall back to installing
+            # dx_tron, which supported Debian and arm64/aarch64/armv7l. dx_com is
+            # x86_64-only on Ubuntu/Fedora/RHEL/CentOS, so with DX-TRON removed
+            # those hosts now abort here instead of reporting a partial success.
             if [ $WILL_INSTALL_DX_COM -eq 0 ]; then
                 print_colored_v2 "ERROR" "dx-com is not supported on this OS/Architecture. Nothing to install."
                 popd >&2

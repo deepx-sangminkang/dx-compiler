@@ -143,7 +143,7 @@ Confirm ALL before claiming completion:
 - [ ] Input model exists and is valid (Step 1)
 - [ ] Config is valid JSON, input names match (Step 2)
 - [ ] Output .dxnn exists with reasonable size (Step 3)
-- [ ] `*_summary.html` generated, partition lines present in compiler.log (Step 4)
+- [ ] `*_summary.html` generated, compiler.log partition lines reviewed (Step 4)
 - [ ] Compiler log reviewed, no errors (Step 5)
 
 ## Completion Report Template
