@@ -36,10 +36,17 @@ For detailed instructions on setting up a local environment for DX-Compiler, ple
 
 ### Faster Installation with uv
 
-Pass `--uv=true` to `install.sh` to install Python packages with [uv](https://docs.astral.sh/uv/) instead of pip:
+`install.sh` installs Python packages with [uv](https://docs.astral.sh/uv/) when uv is already available, and with pip otherwise. Nothing extra is required:
+
+```bash
+./install.sh
+```
+
+Pass `--uv=true` to install uv first if it is missing, or `--uv=false` to force the pip path:
 
 ```bash
 ./install.sh --uv=true
+./install.sh --uv=false
 ```
 
 See [Installation of DX-COM](source/docs/02_02_Installation_of_DX-COM.md) for details.

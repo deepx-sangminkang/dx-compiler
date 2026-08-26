@@ -77,11 +77,18 @@ bootstrap_uv() {
     command -v uv >/dev/null 2>&1
 }
 
-# resolve_pip_cmd <use_uv:0|1>
+# resolve_pip_cmd <use_uv:0|1> [allow_bootstrap:0|1]
 # Sets PIP_CMD and PIP_UNINSTALL_CMD. Never exits; always leaves a usable
 # command pair so a uv problem degrades to pip rather than failing install.
+#
+# allow_bootstrap decides what happens when uv is wanted but not installed, and
+# it defaults to off. uv is on by default, and installing software on someone's
+# machine because of a default they never chose is not this script's call: an
+# install that did not ask for uv behaves exactly as it did before uv existed.
+# install.sh passes 1 only when the user typed --uv=true.
 resolve_pip_cmd() {
     local use_uv="${1:-0}"
+    local allow_bootstrap="${2:-0}"
 
     PIP_CMD="pip"
     PIP_UNINSTALL_CMD="pip uninstall -y"
@@ -91,6 +98,10 @@ resolve_pip_cmd() {
     fi
 
     if ! uv_available; then
+        if [ "${allow_bootstrap}" != "1" ]; then
+            echo "[INFO] uv is not installed; using pip. Pass --uv=true to install uv and speed this up." >&2
+            return 0
+        fi
         if ! bootstrap_uv; then
             echo "[WARNING] --uv was requested, but uv is not installed and could not be installed automatically." >&2
             echo "[WARNING] Continuing with pip. Install uv manually and re-run to use it." >&2

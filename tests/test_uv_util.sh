@@ -28,9 +28,24 @@ PATH="${_UV_FAKE_DIR}:${PATH}" resolve_pip_cmd 1
 assert_eq "uv pip" "$PIP_CMD" "USE_UV=1 with uv present selects uv pip"
 assert_eq "uv pip uninstall" "$PIP_UNINSTALL_CMD" "uv pip uninstall takes no -y"
 
-# USE_UV=1 but bootstrap disabled and uv absent -> must fall back to pip, not fail
-PATH="/usr/bin:/bin" UV_NO_BOOTSTRAP=1 resolve_pip_cmd 1
-assert_eq "pip" "$PIP_CMD" "uv absent + no bootstrap falls back to pip"
+# uv requested explicitly, bootstrap disabled, uv absent -> fall back to pip, not fail
+PATH="/usr/bin:/bin" UV_NO_BOOTSTRAP=1 resolve_pip_cmd 1 1
+assert_eq "pip" "$PIP_CMD" "explicit --uv + failed bootstrap falls back to pip"
+
+# uv on by default (not explicitly requested) and absent: must NOT install uv.
+# Bootstrap is left enabled here, and UV_BOOTSTRAP_DIR points somewhere empty --
+# if resolve_pip_cmd bootstrapped anyway it would download uv and select it, so
+# PIP_CMD=pip is what proves no download happened.
+_UV_BOOT_PROBE=$(mktemp -d)
+PATH="/usr/bin:/bin" UV_BOOTSTRAP_DIR="${_UV_BOOT_PROBE}" resolve_pip_cmd 1 0
+assert_eq "pip" "$PIP_CMD" "default-on + uv absent uses pip without bootstrapping"
+if [ -e "${_UV_BOOT_PROBE}/uv" ]; then
+    echo "FAIL: uv was installed even though it was not explicitly requested"
+    FAILED=1
+else
+    echo "ok: nothing written to UV_BOOTSTRAP_DIR when uv was not explicitly requested"
+fi
+rm -rf "${_UV_BOOT_PROBE}"
 
 # install.sh must advertise and accept --uv, and reject bad values.
 INSTALL_SH="${SCRIPT_DIR}/../install.sh"

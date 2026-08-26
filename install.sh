@@ -23,7 +23,10 @@ REUSE_VENV=0
 FORCE_REMOVE_VENV=1
 VENV_SYSTEM_SITE_PACKAGES_ARGS=""
 USE_PYPI=1
-USE_UV=0
+USE_UV=1
+# Whether --uv was passed explicitly. uv is used by default when it is already
+# installed, but it is only downloaded and installed for a user who asked.
+UV_EXPLICIT=0
 # Resolved by resolve_pip_cmd() after argument parsing; see scripts/uv_util.sh.
 PIP_CMD="pip"
 PIP_UNINSTALL_CMD="pip uninstall -y"
@@ -73,7 +76,9 @@ show_help() {
     echo -e ""
     echo -e "  ${COLOR_GREEN}[--verbose]${COLOR_RESET}                           Enable verbose (debug) logging."
     echo -e "  ${COLOR_GREEN}[--force=<true|false>]${COLOR_RESET}                Force reinstall modules (dx_com, dx_tron) even if already installed (default: true)"
-    echo -e "  ${COLOR_GREEN}[--uv=<true|false>]${COLOR_RESET}                   Use uv instead of pip for Python package installation (default: false)"
+    echo -e "  ${COLOR_GREEN}[--uv=<true|false>]${COLOR_RESET}                   Use uv instead of pip for Python package installation (default: true)"
+    echo -e "                                            - uv is used when already installed; pip is used otherwise."
+    echo -e "                                            - Passing --uv=true explicitly also installs uv if it is missing."
     echo -e "  ${COLOR_GREEN}[--help]${COLOR_RESET}                              Display this help message and exit."
     echo -e ""
     echo -e "Virtual Environment Options:"
@@ -99,7 +104,8 @@ show_help() {
     echo -e "  ${COLOR_YELLOW}$0 --venv_path=./old_venv --venv-force-remove # Force remove and recreate venv${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 --venv_path=./my_venv --venv_symlink_target_path=/tmp/actual_venv # Create venv at /tmp with symlink${COLOR_RESET}"
     echo -e ""
-    echo -e "  ${COLOR_YELLOW}$0 --uv=true # Install with uv (faster dependency resolution)${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --uv=true # Install uv if missing, then use it${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --uv=false # Force the pip path${COLOR_RESET}"
     echo -e ""
 
     if [ "$1" == "error" ] && [[ ! -n "$2" ]]; then
@@ -1127,6 +1133,7 @@ while [[ $# -gt 0 ]]; do
             fi
             ;;
         --uv=*)
+            UV_EXPLICIT=1
             UV_VALUE="${1#*=}"
             if [ "$UV_VALUE" = "true" ]; then
                 USE_UV=1
@@ -1146,7 +1153,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-resolve_pip_cmd "$USE_UV"
+resolve_pip_cmd "$USE_UV" "$UV_EXPLICIT"
 print_colored "Python package installer: ${PIP_CMD}" "INFO"
 
 main
