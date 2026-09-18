@@ -31,6 +31,46 @@
 
 DX-Compiler provides scripts for local installation, as well as scripts for building Docker images and running containers.
 
+### One-Line Installation
+Install the DX-Compiler (`dx-com`) directly from PyPI, without cloning the repository:
+```bash
+curl -fsSL https://raw.githubusercontent.com/DEEPX-AI/dx-compiler/main/oneline-install.sh | sh
+```
+This creates a dedicated virtualenv, installs `dx-com` and its dependencies into it, and links
+the `dxcom` launcher onto your `PATH` so you can run it without activating anything:
+```bash
+dxcom --help
+```
+
+- `DX_VERSION=X.Y.Z` — pin the `dx-com` release (default: newest on PyPI)
+- `DX_INSTALL_DIR=<dir>` — install root (default: `~/deepx`, venv at `~/deepx/venv-dx-compiler`)
+- `DX_BIN_DIR=<dir>` — where the `dxcom` launcher is linked (default: `~/.local/bin`)
+- `DX_NO_UV=1` — install with pip instead of [uv](https://docs.astral.sh/uv/)
+- `UV_PIN=X.Y.Z` — the uv release to bootstrap (pinned by default, so a run never
+  pulls an unreviewed version)
+
+Packages are installed with **uv**, which resolves and downloads wheels considerably faster
+than pip — worth having when the dependency set includes `torch` and the CUDA runtime. uv is
+used if already present, and otherwise fetched as a standalone binary into `~/.local/bin`; it
+is never installed through `pip`, because Debian and Ubuntu mark their system Python PEP 668
+externally-managed. If uv cannot be obtained, the installer falls back to pip — both paths
+install the same packages into the same venv.
+
+For a system-wide install on a shared machine, point both at system paths and run as root:
+```bash
+curl -fsSL https://raw.githubusercontent.com/DEEPX-AI/dx-compiler/main/oneline-install.sh \
+  | sudo DX_INSTALL_DIR=/opt/deepx DX_BIN_DIR=/usr/local/bin sh
+```
+
+Requirements: Debian or Ubuntu, Python 3.8–3.14, and the ability to install system packages.
+The installer apt-installs `libgl1-mesa-dev` and `libglib2.0-0` — `dx-com` pulls in
+`opencv-python`, whose `cv2` extension links against those X/GL libraries and fails to import
+without them — so run it as root or with `sudo` available. The Python dependency set includes
+`torch` and `onnxruntime`, so a first install downloads several GB.
+
+For the full repository clone instead — needed for the sample data and the Docker route —
+see Local Installation and Docker Installation below.
+
 ### Local Installation
 For detailed instructions on setting up a local environment for DX-Compiler, please refer to this [LINK](https://github.com/DEEPX-AI/dx-all-suite/blob/main/docs/source/02_Setting_Up_Environment.md).
 
