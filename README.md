@@ -36,8 +36,9 @@ Install the DX-Compiler (`dx-com`) directly from PyPI, without cloning the repos
 ```bash
 curl -fsSL https://raw.githubusercontent.com/DEEPX-AI/dx-compiler/main/oneline-install.sh | sh
 ```
-This creates a dedicated virtualenv, installs `dx-com` and its dependencies into it, and links
-the `dxcom` launcher onto your `PATH` so you can run it without activating anything:
+This creates a dedicated virtualenv, installs the `dx-com` package and its dependencies into
+it, and links that package's `dxcom` command-line launcher onto your `PATH`, so you can run it
+without activating anything:
 ```bash
 dxcom --help
 ```
