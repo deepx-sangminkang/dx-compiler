@@ -35,7 +35,6 @@ UV_BOOTSTRAP_DIR="${UV_BOOTSTRAP_DIR:-$HOME/.local/bin}"
 # --break-system-packages, which an installer has no business doing to a distro
 # Python. The standalone binary touches no Python installation at all.
 ensure_uv() {
-    [ "${DX_NO_UV:-0}" = "1" ] && return 1
     command -v uv >/dev/null 2>&1 && return 0
     command -v curl >/dev/null 2>&1 || return 1
 
@@ -46,13 +45,17 @@ ensure_uv() {
     # input and "succeed". A file lets curl's own exit status be checked, and
     # a partial download is never executed.
     _inst="$(mktemp)" || return 1
+    # Cleared below; the trap only covers an interrupt between here and the rm.
+    trap 'rm -f "$_inst"' EXIT INT TERM HUP
     if ! curl -LsSf "https://astral.sh/uv/${UV_PIN}/install.sh" -o "$_inst"; then
-        rm -f "$_inst"; return 1
+        rm -f "$_inst"; trap - EXIT INT TERM HUP; return 1
     fi
     # UV_NO_MODIFY_PATH keeps the installer out of the user's shell rc files.
+    # The installer's own progress goes to stderr so it stays separate from this
+    # script's stdout, which a caller may be capturing or piping.
     env UV_INSTALL_DIR="$UV_BOOTSTRAP_DIR" UV_NO_MODIFY_PATH=1 sh "$_inst" >&2
     _rc=$?
-    rm -f "$_inst"
+    rm -f "$_inst"; trap - EXIT INT TERM HUP
     [ "$_rc" -eq 0 ] || return 1
 
     command -v uv >/dev/null 2>&1 && return 0
@@ -90,7 +93,9 @@ main() {
     command -v apt-get >/dev/null 2>&1 \
         || die "this installer expects Debian/Ubuntu. Install the equivalents of '$PREREQ' for your distribution, then re-run."
     log "Installing system prerequisites ($PREREQ)"
-    $SUDO apt-get update -qq || true
+    # Non-fatal: the install below reports its own failure if the index is the
+    # reason a package cannot be resolved.
+    $SUDO apt-get update -qq || warn "apt-get update failed; proceeding with the existing package index"
     # shellcheck disable=SC2086 # PREREQ is a deliberate multi-package word list
     $SUDO apt-get install -y --no-install-recommends $PREREQ \
         || die "failed to install system prerequisites: $PREREQ"
@@ -104,11 +109,13 @@ main() {
     # because dx-com drags in torch and the CUDA runtime. A uv problem degrades
     # to pip rather than failing the install — both paths install the same
     # packages into the same venv, so the outcome does not depend on which ran.
-    if ensure_uv; then
+    if [ "${DX_NO_UV:-0}" = "1" ]; then
+        INSTALLER="pip"
+    elif ensure_uv; then
         INSTALLER="uv"
     else
         INSTALLER="pip"
-        [ "${DX_NO_UV:-0}" = "1" ] || warn "uv unavailable; falling back to pip (slower)"
+        warn "uv unavailable; falling back to pip (slower)"
     fi
 
     if [ ! -e "$VENV/bin/python" ]; then
@@ -130,17 +137,28 @@ main() {
         uv pip install --python "$VENV/bin/python" "$REQ" \
             || die "uv pip install failed for ${REQ}"
     else
-        "$VENV/bin/pip" install --upgrade pip >/dev/null
+        # set -e would otherwise abort the whole install because pip could not
+        # upgrade itself, which says nothing about whether dx-com can be installed.
+        "$VENV/bin/pip" install --upgrade pip >/dev/null \
+            || warn "pip self-upgrade failed; continuing with the existing pip"
         "$VENV/bin/pip" install "$REQ" || die "pip install failed for ${REQ}"
     fi
 
-    "$VENV/bin/python" -c "import dx_com" \
-        || die "dx-com installed but does not import — see the pip output above"
     [ -x "$VENV/bin/dxcom" ] || die "dx-com installed but the dxcom launcher is missing"
+    # Run the launcher rather than importing dx_com: cv2 is reached through
+    # dx_com.cli, not dx_com itself, so an import check still passes when the X/GL
+    # system libraries are absent and dxcom would die on its first real use.
+    if ! _out="$("$VENV/bin/dxcom" --help 2>&1)"; then
+        printf '%s\n' "$_out" >&2
+        die "dx-com installed but 'dxcom --help' failed — see the output above"
+    fi
 
     # Link the launcher onto PATH so the compiler is usable without knowing the
     # venv exists. A non-writable BIN_DIR is a warning, not a failure: the venv
     # itself is complete either way.
+    if [ -e "$BIN_DIR/dxcom" ] && [ ! -L "$BIN_DIR/dxcom" ]; then
+        warn "$BIN_DIR/dxcom already exists and is not a symlink; replacing it"
+    fi
     if mkdir -p "$BIN_DIR" 2>/dev/null && ln -sf "$VENV/bin/dxcom" "$BIN_DIR/dxcom" 2>/dev/null; then
         log "Linked dxcom -> $BIN_DIR/dxcom"
         case ":$PATH:" in
@@ -151,7 +169,7 @@ main() {
         warn "could not link into $BIN_DIR; call $VENV/bin/dxcom directly"
     fi
 
-    _ver="$("$VENV/bin/python" -c 'import importlib.metadata as m; print(m.version("dx-com"))')"
+    _ver="$("$VENV/bin/python" -c 'import importlib.metadata as m; print(m.version("dx-com"))' 2>/dev/null || echo unknown)"
     log "Done. dx-com ${_ver} installed at $VENV"
     log "Run 'dxcom --help', or activate the venv with:  . $VENV/bin/activate"
 }
