@@ -69,6 +69,28 @@ The installer apt-installs `libgl1-mesa-dev` and `libglib2.0-0` — `dx-com` pul
 without them — so run it as root or with `sudo` available. The Python dependency set includes
 `torch` and `onnxruntime`, so a first install downloads several GB.
 
+#### Uninstalling
+
+Remove what the one-liner installed — the virtualenv and the `dxcom` launcher:
+```bash
+curl -fsSL https://raw.githubusercontent.com/DEEPX-AI/dx-compiler/main/oneline-uninstall.sh | sh
+```
+
+Pass the same `DX_INSTALL_DIR` / `DX_BIN_DIR` you installed with, otherwise it looks in the
+default location and finds nothing. For the system-wide install shown above:
+```bash
+curl -fsSL https://raw.githubusercontent.com/DEEPX-AI/dx-compiler/main/oneline-uninstall.sh \
+  | sudo DX_INSTALL_DIR=/opt/deepx DX_BIN_DIR=/usr/local/bin sh
+```
+
+It removes the `dxcom` launcher only while that launcher still points into the virtualenv
+being deleted, so a `dxcom` belonging to another install is never touched. `uv` and the
+`libgl1-mesa-dev` / `libglib2.0-0` system packages are deliberately left in place — other
+software may depend on them — and are reported at the end so you can remove them yourself.
+
+If you have the repository checked out, `./uninstall.sh` removes a one-line install as well
+as a clone-based one, so you do not need to remember which way it was installed.
+
 For the full repository clone instead — needed for the sample data and the Docker route —
 see Local Installation and Docker Installation below.
 
