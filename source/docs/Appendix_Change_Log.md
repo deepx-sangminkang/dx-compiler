@@ -29,6 +29,8 @@ DX-TRON was deprecated in v2.4.0 and is removed in this release. Use the DX-COM 
 -   **`QMasterConfig`** public configuration object for QAT (exported from `dx_com`).
 -   **Segmentation QAT**: Quantization-Aware Training now supports dense segmentation models via an opt-in `task_type` block in the `qmaster` config (`seg_root`, `seg_pairs_train`/`seg_pairs_val`, `seg_ignore_index`, `seg_binary`, `seg_ce`).
 -   Passing `--target=dx_tron` now exits with a specific explanation instead of a generic "invalid target" error, pointing at `--target=dx_com` and the `--export_html` summary report.
+-   **One-line installation**: `oneline-install.sh` installs DX-COM from PyPI without cloning the repository (`curl -fsSL https://raw.githubusercontent.com/DEEPX-AI/dx-compiler/main/oneline-install.sh | sh`) into a dedicated virtualenv and links `dxcom` onto `PATH`. `oneline-uninstall.sh` removes it; `uninstall.sh` also removes a one-line install.
+-   **uv-based installation**: `install.sh` uses [uv](https://docs.astral.sh/uv/) when it is available and falls back to pip otherwise. `--uv=true` installs uv first if missing; `--uv=false` forces pip. See [Installation of DX-COM](02_02_Installation_of_DX-COM.md).
 -   **New `pre_optimize` tasks**: the `task` key (`base` / `seg` / `pose`) adds pose (keypoint) and segmentation postprocessing support.
 -   **`rtmdet_postprocess` pass**: RTMDet detection postprocessing.
 -   **`Gather` operator**: 2-D `indices` tensors are now supported (previously 0-D/1-D only). See [Supported ONNX Operators](03_Building_Models.md).

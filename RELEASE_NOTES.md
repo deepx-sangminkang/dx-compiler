@@ -52,6 +52,8 @@ Here are the **DX-Compiler v2.5.0** Release Notes.
 ### 3. Added
 
 -   **Explicit Message for the Removed Target**: passing `--target=dx_tron` now exits non-zero with a specific explanation instead of the generic "invalid target" error — `install.sh` points at `--target=dx_com` and the `--export_html` summary report, and `uninstall.sh` points at `sudo apt-get remove dxtron`. Existing scripts and CI jobs fail with the reason rather than a misleading message.
+-   **One-Line Installation**: new `oneline-install.sh` installs DX-COM from PyPI without cloning the repository — `curl -fsSL https://raw.githubusercontent.com/DEEPX-AI/dx-compiler/main/oneline-install.sh | sh`. It creates a dedicated virtualenv (default `~/deepx/venv-dx-compiler`) and links the `dxcom` launcher onto `PATH` (default `~/.local/bin`). Overrides: `DX_VERSION`, `DX_INSTALL_DIR`, `DX_BIN_DIR`, `DX_NO_UV`, `UV_PIN`. The matching `oneline-uninstall.sh` removes the virtualenv and the launcher, and `uninstall.sh` also removes a one-line install.
+-   **uv-Based Installation**: `install.sh` installs Python packages with [uv](https://docs.astral.sh/uv/) when uv is already available, and falls back to pip otherwise. New `--uv=<true|false>` option — `--uv=true` bootstraps a pinned uv release as a standalone binary if it is missing, `--uv=false` forces pip. The virtual environment is created with `uv venv --seed` (falling back to `python -m venv`). Archive mode keeps using pip, since uv has no `pip download` equivalent.
 
 ### Documentation
 
