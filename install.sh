@@ -562,7 +562,7 @@ setup_project() {
     elif check_virtualenv; then
         install_pip_packages
     else
-        print_colored_v2 "ERROR" "Virtual environment '${VENV_PATH}' is not exist."
+        print_colored_v2 "ERROR" "Virtual environment '${VENV_PATH}' does not exist."
         popd >&2
         exit 1
     fi
