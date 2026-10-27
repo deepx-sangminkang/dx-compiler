@@ -471,7 +471,7 @@ self-contained.
 
 Examples:
 - `20260403-143022_claude_opus46_yolo26x_compile`
-- `20260403-143022_copilot_sonnet46_resnet50_compile`
+- `20260403-143022_cursor_gpt55_resnet50_compile`
 
 **Working directory structure**:
 ```
